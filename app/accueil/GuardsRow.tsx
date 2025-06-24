@@ -28,7 +28,9 @@ export const GuardsRow: React.FC<GuardsRowProps> = ({
   const sites = Array.from(new Set(machines.filter(m => selectedMachines.includes(m.id)).map(m => m.site).filter(Boolean)));
   
   // Trier les sites : CDS en premier, puis ST EX, puis les autres
-  const sortedSites = sites.sort((a, b) => {
+  const sortedSites = sites
+  .filter((site): site is string => site !== undefined) // Filtrer les undefined et typer comme string[]
+  .sort((a, b) => {
     if (a === 'CDS') return -1;
     if (b === 'CDS') return 1;
     if (a === 'ST EX') return -1;
@@ -42,7 +44,7 @@ export const GuardsRow: React.FC<GuardsRowProps> = ({
   );
   const uniqueMachinesWithoutSite = Array.from(
     new Map(machines.filter(m => !m.site && selectedMachines.includes(m.id)).map(m => [m.id, m]))
-  ).values();
+  ).map(([_, machine]) => machine); // Extraire directement les valeurs (Machine)
   orderedMachines.push(...uniqueMachinesWithoutSite);
 
   const separationIndices: number[] = [];

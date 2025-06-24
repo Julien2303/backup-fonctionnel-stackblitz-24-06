@@ -18,7 +18,9 @@ export const GuardsRow: React.FC<GuardsRowProps> = ({ day, machines, selectedMac
   const sites = Array.from(new Set(machines.filter(m => selectedMachines.includes(m.id)).map(m => m.site).filter(Boolean)));
   
   // Trier les sites : CDS en premier, puis ST EX, puis les autres
-  const sortedSites = sites.sort((a, b) => {
+  const sortedSites = sites
+  .filter((site): site is string => site !== undefined) // Filtrer les undefined et typer comme string[]
+  .sort((a, b) => {
     if (a === 'CDS') return -1;
     if (b === 'CDS') return 1;
     if (a === 'ST EX') return -1;

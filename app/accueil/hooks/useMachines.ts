@@ -4,7 +4,7 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '@/lib/supabase/client';
-import { Machine } from '@/app/acceuil/types';
+import { Machine } from '../types';
 
 export const useMachines = () => {
   const [machines, setMachines] = useState<Machine[]>([]);

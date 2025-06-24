@@ -1,15 +1,34 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { supabase } from '@/lib/supabase/client'; // Import the supabase instance
-import { Database } from '@/lib/supabase/types'; // Assurez-vous que ce fichier existe
-import { PostgrestError } from '@supabase/supabase-js';
+import { supabase } from '@/lib/supabase/client';
 import { useAuth } from '@/lib/auth';
 
-type Doctor = Database['public']['Tables']['doctors']['Row'];
-type WeeklyHours = Database['public']['Tables']['weekly_hours']['Row'];
-type Week = Database['public']['Tables']['weeks']['Row'];
+// Définir les types manuellement
+interface Doctor {
+  id: string;
+  first_name: string;
+  last_name: string | null;
+  initials: string;
+  color: string | null;
+  is_active: boolean;
+  type: 'associé' | 'remplaçant';
+}
 
+interface WeeklyHours {
+  id?: string;
+  doctor_id: string;
+  year: number;
+  week_number: number;
+  total_hours: number | string; // Peut être string si retourné par Supabase
+}
+
+interface Week {
+  id?: string;
+  year: number;
+  week_number: number;
+  is_validated: boolean;
+}
 // Fonction pour déterminer le nombre de semaines dans une année
 const getWeeksInYear = (year: number) => {
   const date = new Date(year, 11, 31); // 31 décembre de l'année
@@ -18,7 +37,6 @@ const getWeeksInYear = (year: number) => {
 };
 
 export default function PlanningPage() {
-  // TOUS les hooks doivent être appelés au début, avant tout return conditionnel
   const { loading: authLoading, error: authError, role } = useAuth(['admin', 'gestion', 'user']);
   const [year, setYear] = useState(new Date().getFullYear());
   const [doctors, setDoctors] = useState<Doctor[]>([]);

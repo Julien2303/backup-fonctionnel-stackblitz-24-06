@@ -8,6 +8,7 @@ export default function Login() {
   const [email, setEmail] = useState<string>('');
   const [password, setPassword] = useState<string>('');
   const [error, setError] = useState<string | null>(null);
+  const [isButtonHovered, setIsButtonHovered] = useState<boolean>(false); // Ajout pour gérer le survol
   const router = useRouter();
 
   const handleLogin = async (e: React.FormEvent<HTMLFormElement>) => {
@@ -35,23 +36,27 @@ export default function Login() {
   };
 
   return (
-    <div style={{ 
-      maxWidth: '400px', 
-      margin: '50px auto 0', // Décalage réduit en haut pour positionner plus haut
-      padding: '20px',
-      minHeight: '100vh',
-      display: 'flex',
-      alignItems: 'flex-start', // Changé de center à flex-start pour monter l'encart
-      justifyContent: 'center'
-    }}>
-      <div style={{
-        background: 'white',
-        padding: '24px',
-        borderRadius: '8px',
-        boxShadow: '0 4px 6px rgba(0, 0, 0, 0.1)',
-        width: '100%',
-        border: '1px solid #e5e7eb'
-      }}>
+    <div
+      style={{
+        maxWidth: '400px',
+        margin: '50px auto 0',
+        padding: '20px',
+        minHeight: '100vh',
+        display: 'flex',
+        alignItems: 'flex-start',
+        justifyContent: 'center',
+      }}
+    >
+      <div
+        style={{
+          background: 'white',
+          padding: '24px',
+          borderRadius: '8px',
+          boxShadow: '0 4px 6px rgba(0, 0, 0, 0.1)',
+          width: '100%',
+          border: '1px solid #e5e7eb',
+        }}
+      >
         <h1 style={{ textAlign: 'center', marginBottom: '24px' }}>Connexion</h1>
         <form onSubmit={handleLogin}>
           <div style={{ marginBottom: '16px' }}>
@@ -61,12 +66,12 @@ export default function Login() {
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               required
-              style={{ 
-                width: '100%', 
-                padding: '8px', 
+              style={{
+                width: '100%',
+                padding: '8px',
                 border: '1px solid #d1d5db',
                 borderRadius: '4px',
-                boxSizing: 'border-box'
+                boxSizing: 'border-box',
               }}
             />
           </div>
@@ -77,34 +82,30 @@ export default function Login() {
               value={password}
               onChange={(e) => setPassword(e.target.value)}
               required
-              style={{ 
-                width: '100%', 
-                padding: '8px', 
+              style={{
+                width: '100%',
+                padding: '8px',
                 border: '1px solid #d1d5db',
                 borderRadius: '4px',
-                boxSizing: 'border-box'
+                boxSizing: 'border-box',
               }}
             />
           </div>
           {error && <p style={{ color: 'red', textAlign: 'center', marginBottom: '16px' }}>{error}</p>}
-          <div style={{ 
-            display: 'flex', 
-            justifyContent: 'center'
-          }}>
-            <button 
-              type="submit" 
-              style={{ 
+          <div style={{ display: 'flex', justifyContent: 'center' }}>
+            <button
+              type="submit"
+              style={{
                 padding: '10px 24px',
-                background: '#2563eb',
+                background: isButtonHovered ? '#1d4ed8' : '#2563eb', // Gestion du survol
                 color: 'white',
                 border: 'none',
                 borderRadius: '4px',
                 cursor: 'pointer',
                 transition: 'background-color 0.2s',
-                '&:hover': {
-                  background: '#1d4ed8'
-                }
               }}
+              onMouseEnter={() => setIsButtonHovered(true)}
+              onMouseLeave={() => setIsButtonHovered(false)}
             >
               Se connecter
             </button>

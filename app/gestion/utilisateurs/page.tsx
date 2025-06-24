@@ -1,8 +1,17 @@
-'use client'
+'use client';
 import { useAuth } from '@/lib/auth';
 import { useState, useEffect } from 'react';
 import { supabase } from '@/lib/supabase/client';
 
+// Interface pour les données brutes renvoyées par la RPC
+interface RawUser {
+  id: string;
+  role: 'admin' | 'user' | 'gestion';
+  email: string | null;
+  created_at: string;
+}
+
+// Interface pour les données transformées
 interface UserProfile {
   id: string;
   role: 'admin' | 'user' | 'gestion';
@@ -16,8 +25,6 @@ export default function UtilisateursPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [updatingUser, setUpdatingUser] = useState<string | null>(null);
-  
-  // Utiliser le client Supabase existant
 
   useEffect(() => {
     if (!authLoading && !authError) {
@@ -29,21 +36,20 @@ export default function UtilisateursPage() {
     try {
       setLoading(true);
       setError(null);
-      
-      // Utiliser la fonction RPC pour récupérer les utilisateurs avec leurs emails
-      const { data, error } = await supabase
-        .rpc('get_users_with_profiles');
+
+      // Typage explicite du résultat de la requête RPC
+      const { data, error } = await supabase.rpc('get_users_with_profiles') as { data: RawUser[] | null; error: any };
 
       if (error) {
         throw error;
       }
 
       // Transformer les données
-      const transformedData = data?.map(user => ({
+      const transformedData = data?.map((user: RawUser) => ({
         id: user.id,
-        role: user.role as 'admin' | 'user' | 'gestion',
+        role: user.role, // Pas besoin d'assertion grâce au typage de RawUser
         email: user.email || 'Email non disponible',
-        created_at: user.created_at
+        created_at: user.created_at,
       })) || [];
 
       setUsers(transformedData);
@@ -70,10 +76,9 @@ export default function UtilisateursPage() {
       }
 
       // Mettre à jour l'état local
-      setUsers(users.map(user => 
+      setUsers(users.map((user) =>
         user.id === userId ? { ...user, role: newRole } : user
       ));
-
     } catch (err) {
       console.error('Erreur lors de la mise à jour du rôle:', err);
       setError('Impossible de mettre à jour le rôle');
@@ -126,7 +131,7 @@ export default function UtilisateursPage() {
       {error && (
         <div className="mb-4 p-4 bg-red-50 border border-red-200 rounded-lg">
           <p className="text-red-700">{error}</p>
-          <button 
+          <button
             onClick={fetchUsers}
             className="mt-2 text-red-600 underline hover:text-red-800"
           >
@@ -147,7 +152,7 @@ export default function UtilisateursPage() {
               Utilisateurs ({users.length})
             </h2>
           </div>
-          
+
           <div className="overflow-x-auto">
             <table className="w-full">
               <thead className="bg-gray-50">
@@ -186,14 +191,20 @@ export default function UtilisateursPage() {
                       </div>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
-                      <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${getRoleColor(user.role)}`}>
+                      <span
+                        className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${getRoleColor(
+                          user.role
+                        )}`}
+                      >
                         {getRoleLabel(user.role)}
                       </span>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
                       <select
                         value={user.role}
-                        onChange={(e) => updateUserRole(user.id, e.target.value as 'admin' | 'user' | 'gestion')}
+                        onChange={(e) =>
+                          updateUserRole(user.id, e.target.value as 'admin' | 'user' | 'gestion')
+                        }
                         disabled={updatingUser === user.id}
                         className="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm disabled:opacity-50 disabled:cursor-not-allowed"
                       >
@@ -212,7 +223,7 @@ export default function UtilisateursPage() {
                       {new Date(user.created_at).toLocaleDateString('fr-FR', {
                         year: 'numeric',
                         month: 'short',
-                        day: 'numeric'
+                        day: 'numeric',
                       })}
                     </td>
                   </tr>
@@ -220,7 +231,7 @@ export default function UtilisateursPage() {
               </tbody>
             </table>
           </div>
-          
+
           {users.length === 0 && !loading && (
             <div className="text-center py-12">
               <p className="text-gray-500">Aucun utilisateur trouvé</p>

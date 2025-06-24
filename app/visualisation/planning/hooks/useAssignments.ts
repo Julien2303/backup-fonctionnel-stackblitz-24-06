@@ -1,6 +1,6 @@
 import { useState, useCallback } from 'react';
-import { supabase, getOrCreateWeekId, createShift, upsertDoctorAssignment, deleteDoctorAssignment, getAssignmentsForWeek, recalculateMutualizationPercentages, getCongesForWeek } from '@/lib/supabase/client';
-import { Assignment, DoctorAssignment } from './types';
+import { supabase, getOrCreateWeekId, createShift, upsertDoctorAssignment, deleteDoctorAssignment, getAssignmentsForWeek, getCongesForWeek } from '@/lib/supabase/client';
+import { Assignment, DoctorAssignment } from '../types';
 import { formatDateKey } from '../utils'
 
 export const useAssignments = () => {
@@ -144,7 +144,7 @@ export const useAssignments = () => {
         console.log('Assigning doctor with parts:', { doctorId, parts });
 
         // Ajouter ou mettre à jour l'assignation
-        await upsertDoctorAssignment(shiftId, doctorId, parts, false, false, false);
+        await upsertDoctorAssignment(shiftId, doctorId, parts, false, false, false, false, false);
 
         // Rafraîchir les assignations depuis Supabase pour synchroniser l'état
         const updatedAssignments = await getAssignmentsForWeek(year, weekNumber);
@@ -210,7 +210,9 @@ export const useAssignments = () => {
           doctor.share,
           updatedOptions.teleradiologie,
           updatedOptions.en_differe,
-          updatedOptions.lecture_differee
+          updatedOptions.lecture_differee,
+          false,
+          false
         );
 
         // Rafraîchir les assignations depuis Supabase pour synchroniser l'état
@@ -257,7 +259,7 @@ export const useAssignments = () => {
         if (doctor.share <= 1) {
           // Supprimer l'assignation si share = 1
           console.log('Deleting doctor assignment:', { doctorId });
-          await deleteDoctorAssignment(assignment.id!, doctorId);
+          await deleteDoctorAssignment(assignment.id!, doctorId, false, false);
         } else {
           // Réduire les parts et recalculer
           console.log('Decreasing doctor share:', { doctorId, newShare: doctor.share - 1 });
@@ -267,7 +269,9 @@ export const useAssignments = () => {
             doctor.share - 1,
             doctor.teleradiologie,
             doctor.differe,
-            doctor.plusDiffere
+            doctor.plusDiffere,
+            false,
+            false
           );
         }
 
@@ -326,7 +330,9 @@ export const useAssignments = () => {
           doctor.share + 1,
           doctor.teleradiologie,
           doctor.differe,
-          doctor.plusDiffere
+          doctor.plusDiffere,
+          false,
+          false
         );
 
         // Rafraîchir les assignations depuis Supabase
@@ -361,7 +367,7 @@ export const useAssignments = () => {
         const assignment = assignments[assignmentIndex];
 
         // Supprimer l'assignation
-        await deleteDoctorAssignment(assignment.id!, doctorId);
+        await deleteDoctorAssignment(assignment.id!, doctorId, false, false);
 
         // Rafraîchir les assignations depuis Supabase
         const year = new Date(day).getFullYear();

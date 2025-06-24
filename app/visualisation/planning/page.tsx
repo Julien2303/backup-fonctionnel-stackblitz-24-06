@@ -261,7 +261,7 @@ export default function VisualizationPlanningPage() {
     }
 
     // Organiser les sites et machines
-    const sites = Array.from(new Set(machines.map((m) => m.site).filter(Boolean)));
+    const sites = Array.from(new Set(machines.map((m) => m.site).filter((site): site is string => site !== undefined)));
     const sortedSites = sites.sort((a, b) => {
       if (a === 'CDS') return -1;
       if (b === 'CDS') return 1;
@@ -269,6 +269,7 @@ export default function VisualizationPlanningPage() {
       if (b === 'ST EX') return 1;
       return a.localeCompare(b);
     });
+    
 
     const orderedMachines = sortedSites.flatMap((site) =>
       machines.filter((m) => m.site === site)

@@ -2,14 +2,30 @@
 
 import { useEffect, useState } from 'react';
 import { supabase } from '@/lib/supabase/client';
-import { Database } from '@/lib/supabase.types';
 import { useAuth } from '@/lib/auth';
 
-type Doctor = Database['public']['Tables']['doctors']['Row'];
-type Garde = Database['public']['Tables']['gardes']['Row'] & {
+// Définir les types manuellement
+interface Doctor {
+  id: string;
+  initials: string;
+  color: string | null;
+  first_name: string;
+  last_name: string | null;
+  is_active: boolean;
+}
+
+interface Garde {
+  id: string;
+  date: string;
+  jour: string;
+  jour_ferie?: boolean;
+  noel?: boolean;
+  nouvel_an?: boolean;
+  medecin_cds_id?: string;
+  medecin_st_ex_id?: string;
   medecin_cds: Doctor | null;
   medecin_st_ex: Doctor | null;
-};
+}
 
 interface DoctorGardeCount {
   doctorId: string;
@@ -28,7 +44,6 @@ export default function GardeSummaryPage() {
   const [nouvelAnDoctor, setNouvelAnDoctor] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const { loading: authLoading, error: authError, role } = useAuth(['admin', 'gestion', 'user']);
-
   // Fonction pour récupérer les données
   useEffect(() => {
     async function fetchData() {

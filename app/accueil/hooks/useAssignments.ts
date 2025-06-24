@@ -1,6 +1,6 @@
 import { useState, useCallback } from 'react';
 import { supabase, getOrCreateWeekId, createShift, upsertDoctorAssignment, deleteDoctorAssignment, getAssignmentsForWeek, getCongesForWeek } from '@/lib/supabase/client';
-import { Assignment} from '../types';
+import { Assignment, DoctorAssignment} from '../types';
 import { formatDateKey } from '../utils'
 
 export const useAssignments = () => {
@@ -180,7 +180,7 @@ export const useAssignments = () => {
         }
 
         const assignment = assignments[assignmentIndex];
-        const doctorIndex = assignment.doctors.findIndex((d: { doctorId: string; }) => d.doctorId === doctorId);
+        const doctorIndex = assignment.doctors.findIndex((d: DoctorAssignment) => d.doctorId === doctorId);
 
         if (doctorIndex === -1) {
           console.error('Doctor not found in assignment:', { doctorId, assignment });
@@ -247,7 +247,7 @@ export const useAssignments = () => {
         }
 
         const assignment = assignments[assignmentIndex];
-        const doctor = assignment.doctors.find((d: { doctorId: string; }) => d.doctorId === doctorId);
+        const doctor = assignment.doctors.find((d: DoctorAssignment) => d.doctorId === doctorId);
 
         if (!doctor) {
           console.error('Doctor not found:', { doctorId, assignment });
@@ -314,7 +314,7 @@ export const useAssignments = () => {
           return;
         }
 
-        const doctor = assignment.doctors.find((d: { doctorId: string; }) => d.doctorId === doctorId);
+        const doctor = assignment.doctors.find((d: DoctorAssignment) => d.doctorId === doctorId);
         if (!doctor) {
           console.error('Doctor not found:', { doctorId, assignment });
           return;

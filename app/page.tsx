@@ -9,7 +9,7 @@ import { useDoctors } from './accueil/hooks/useDoctors';
 import { useMachines } from './accueil/hooks/useMachines';
 import { useAssignments } from './accueil/hooks/useAssignments';
 import { getGardesForYear, getCongesForWeek, getValidatedWeeks } from '@/lib/supabase/client';
-import { Doctor, Machine, Garde } from './types';
+import { Doctor, Machine, Garde } from './accueil/types';
 import { GuardsRow } from './accueil/GuardsRow';
 
 
@@ -246,7 +246,7 @@ export default function Home() {
     }
 
     // Organiser les sites et machines
-    const sites = Array.from(new Set(machines.map((m) => m.site).filter(Boolean)));
+    const sites = Array.from(new Set(machines.map((m) => m.site).filter((site): site is string => site !== undefined)));
     const sortedSites = sites.sort((a, b) => {
       if (a === 'CDS') return -1;
       if (b === 'CDS') return 1;
@@ -254,7 +254,7 @@ export default function Home() {
       if (b === 'ST EX') return 1;
       return a.localeCompare(b);
     });
-
+    
     const orderedMachines = sortedSites.flatMap((site) =>
       machines.filter((m) => m.site === site)
     );
