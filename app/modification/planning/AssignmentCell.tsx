@@ -129,7 +129,7 @@ export const AssignmentCell: React.FC<AssignmentCellProps> = ({
 
   const renderDoctorInitials = (doctorAssignment: DoctorAssignment, index: number) => {
     const widthPercentage = totalShares > 0 ? (doctorAssignment.share / totalShares) * 100 : 100;
-
+  
     if (doctorAssignment.maintenance) {
       return (
         <div 
@@ -152,7 +152,7 @@ export const AssignmentCell: React.FC<AssignmentCellProps> = ({
         </div>
       );
     }
-
+  
     if (doctorAssignment.noDoctor) {
       return (
         <div 
@@ -173,13 +173,13 @@ export const AssignmentCell: React.FC<AssignmentCellProps> = ({
         </div>
       );
     }
-
+  
     const doctor = doctors.find(d => d.id === doctorAssignment.doctorId);
     if (!doctor) return null;
-
+  
     const initialsLength = doctor.initials?.length || 0;
     let fontSizeClass = 'text-sm';
-
+  
     if (widthPercentage < 25 || (initialsLength > 8 && widthPercentage < 50)) {
       fontSizeClass = 'text-[0.5rem]';
     } else if (widthPercentage < 40 || (initialsLength > 5 && widthPercentage < 60)) {
@@ -187,16 +187,19 @@ export const AssignmentCell: React.FC<AssignmentCellProps> = ({
     } else if (initialsLength > 8) {
       fontSizeClass = 'text-xs';
     }
-
+  
+    // Ajoutez cette ligne ici
+    const exceptionHours = doctorAssignment.doctorId ? exceptionHoursMap[doctorAssignment.doctorId] : null;
+  
     console.log('Rendering doctor initials:', {
       doctorId: doctorAssignment.doctorId,
       initials: doctor.initials,
       teleradiologie: doctorAssignment.teleradiologie,
       differe: doctorAssignment.differe,
       plusDiffere: doctorAssignment.plusDiffere,
-      exceptionHours: exceptionHoursMap[doctorAssignment.doctorId]
+      exceptionHours: exceptionHours // Utilisez la variable ici
     });
-
+  
     const textClass = [
       fontSizeClass,
       'font-medium',
@@ -204,10 +207,9 @@ export const AssignmentCell: React.FC<AssignmentCellProps> = ({
       doctorAssignment.differe ? 'font-bold text-red-600' : '',
       doctorAssignment.plusDiffere ? 'underline' : ''
     ].filter(Boolean).join(' ');
-
-    const exceptionHours = doctorAssignment.doctorId ? exceptionHoursMap[doctorAssignment.doctorId] : null;
+  
     const hasException = exceptionHours !== null && exceptionHours > 0;
-
+  
     return (
       <div 
         key={doctorAssignment.doctorId}

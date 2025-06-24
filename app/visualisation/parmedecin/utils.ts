@@ -2,6 +2,8 @@
  * Fonctions utilitaires pour la gestion des dates et données
  */
 
+import { Doctor, DoctorAssignment } from "../planning/types";
+
 /**
  * Obtient le numéro de semaine ISO 8601 d'une date
  * La semaine 1 est la première semaine de l'année contenant un jeudi

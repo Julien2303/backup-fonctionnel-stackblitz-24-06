@@ -153,7 +153,13 @@ export default function PlanningPage() {
       return <div className="p-4 text-red-600">Impossible de générer le planning : dates invalides.</div>;
     }
 
-    const sites = Array.from(new Set(selectedMachines.map(id => machines.find(m => m.id === id)?.site).filter(Boolean)) as string[]);
+    const sites = Array.from(
+      new Set(
+        selectedMachines
+          .map(id => machines.find(m => m.id === id)?.site)
+          .filter((site): site is string => typeof site === 'string')
+      )
+    );
     const sortedSites = sites.sort((a, b) => {
       if (a === 'CDS') return -1;
       if (b === 'CDS') return 1;

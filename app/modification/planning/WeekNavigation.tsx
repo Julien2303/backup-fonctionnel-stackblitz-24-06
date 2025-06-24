@@ -7,12 +7,18 @@ import { getWeekValidation, upsertWeekValidation } from '../../../lib/supabase/c
 interface WeekNavigationProps {
   currentDate: Date;
   selectedWeek: number;
-  selectedYear: number; // Ajout
+  selectedYear: number;
   setCurrentDate: React.Dispatch<React.SetStateAction<Date>>;
   setSelectedWeek: React.Dispatch<React.SetStateAction<number>>;
-  setSelectedYear: React.Dispatch<React.SetStateAction<number>>; // Ajout
+  setSelectedYear: React.Dispatch<React.SetStateAction<number>>;
   setExpandedCell: React.Dispatch<React.SetStateAction<{ day: string; slot: string; machineId: string } | null>>;
-  setSelectedDoctor: React.Dispatch<React.SetStateAction<{ day: string; slot: string; machineId: string; doctorId: string } | null>>;
+  setSelectedDoctor: React.Dispatch<React.SetStateAction<{
+    day: string;
+    slot: string;
+    machineId: string;
+    doctorId: string | null;
+    updateExceptionHours?: (doctorId: string, hours: number | null) => void;
+  } | null>>;
   weekDays: Date[];
 }
 
