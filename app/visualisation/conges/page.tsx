@@ -208,7 +208,7 @@ export default function CongesVisualisationPage() {
       setLoading(false);
     }
     fetchData();
-  }, [selectedYear, authLoading]);
+  }, [selectedYear, authLoading, generateDays]);
 
   // Calculer le total des congés par médecin
   const getTotalConges = (doctorId: string) => {

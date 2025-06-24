@@ -64,7 +64,7 @@ export function useAuth(allowedRoles: string[]) {
     }
 
     checkAuth();
-  }, [router]);
+  }, [router, allowedRoles]);
 
   return authResult;
 }

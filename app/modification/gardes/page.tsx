@@ -162,7 +162,7 @@ export default function GardesPage() {
       setLoading(false);
     }
     fetchGardes();
-  }, [selectedYear, authLoading, authError]);
+  }, [selectedYear, authLoading, authError, generateDays]);
 
   // Créer ou mettre à jour une garde
   const upsertGarde = async (garde: Garde) => {

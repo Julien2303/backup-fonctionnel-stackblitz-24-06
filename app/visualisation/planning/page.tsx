@@ -205,7 +205,7 @@ export default function VisualizationPlanningPage() {
     };
 
     initializeData();
-  }, [loadDoctors, loadMachines]);
+  }, [loadDoctors, loadMachines, selectedYear, today]);
 
   // Charger les affectations
   useEffect(() => {

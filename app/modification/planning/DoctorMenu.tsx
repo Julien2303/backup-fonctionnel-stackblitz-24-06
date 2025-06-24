@@ -44,6 +44,35 @@ export const DoctorMenu: React.FC<DoctorMenuProps> = ({
     setLocalAssignment(assignment);
   }, [assignment]);
 
+
+  const checkRecurringException = async (): Promise<number | null> => {
+    if (!shiftDate || !shiftType || !machineId) return null;
+
+    const dayOfWeek = new Date(shiftDate).getDay() === 0 ? 7 : new Date(shiftDate).getDay();
+    
+    try {
+      const { data, error } = await supabase
+        .from('recurring_hour_exceptions')
+        .select('exception_hours')
+        .eq('day_of_week', dayOfWeek)
+        .eq('shift_type', shiftType)
+        .or(`machine_id.eq.${machineId},machine_id.is.null`)
+        .lte('start_date', shiftDate)
+        .gte('end_date', shiftDate)
+        .single();
+
+      if (error && error.code !== 'PGRST116') {
+        console.error('Erreur vérification exception récurrente:', error);
+        return null;
+      }
+
+      return data?.exception_hours || null;
+    } catch (error) {
+      console.error('Erreur lors de la vérification de l\'exception récurrente:', error);
+      return null;
+    }
+  };
+
   // Charger l'exception horaire existante au montage du composant
   useEffect(() => {
     const loadExceptionHours = async () => {
@@ -81,35 +110,7 @@ export const DoctorMenu: React.FC<DoctorMenuProps> = ({
     };
 
     loadExceptionHours();
-  }, [shiftId, doctor?.id]);
-
-  const checkRecurringException = async (): Promise<number | null> => {
-    if (!shiftDate || !shiftType || !machineId) return null;
-
-    const dayOfWeek = new Date(shiftDate).getDay() === 0 ? 7 : new Date(shiftDate).getDay();
-    
-    try {
-      const { data, error } = await supabase
-        .from('recurring_hour_exceptions')
-        .select('exception_hours')
-        .eq('day_of_week', dayOfWeek)
-        .eq('shift_type', shiftType)
-        .or(`machine_id.eq.${machineId},machine_id.is.null`)
-        .lte('start_date', shiftDate)
-        .gte('end_date', shiftDate)
-        .single();
-
-      if (error && error.code !== 'PGRST116') {
-        console.error('Erreur vérification exception récurrente:', error);
-        return null;
-      }
-
-      return data?.exception_hours || null;
-    } catch (error) {
-      console.error('Erreur lors de la vérification de l\'exception récurrente:', error);
-      return null;
-    }
-  };
+  }, [shiftId, doctor?.id, checkRecurringException]);
 
   const saveExceptionHours = async () => {
     if (!shiftId || !doctor?.id) {

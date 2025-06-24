@@ -190,7 +190,7 @@ export default function Home() {
     };
 
     initializeData();
-  }, [loadDoctors, loadMachines, selectedYear]);
+  }, [loadDoctors, loadMachines, selectedYear, today]);
 
   // Charger les affectations pour la semaine en cours
   useEffect(() => {

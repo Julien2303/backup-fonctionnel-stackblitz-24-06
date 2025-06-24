@@ -97,7 +97,7 @@ export const AssignmentCell: React.FC<AssignmentCellProps> = ({
     };
 
     loadExceptionHours();
-  }, [assignments, day, slot, machine.id]);
+  }, [assignments, day, slot, machine.id, assignedDoctors]);
 
   const handleAddDoctor = () => {
     console.log('Opening assignment menu for:', { day, slot, machineId: machine.id, totalShares, uniqueDoctorCount });

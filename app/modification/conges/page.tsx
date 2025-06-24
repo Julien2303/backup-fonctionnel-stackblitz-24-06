@@ -153,7 +153,7 @@ export default function CongesPage() {
       setLoading(false);
     }
     fetchData();
-  }, [selectedYear, authLoading, authError]);
+  }, [selectedYear, authLoading, authError, generateDays]);
 
   // Créer ou mettre à jour un congé
 const upsertConge = async (conge: Conge) => {
