@@ -542,7 +542,7 @@ export default function TypicalWeekPage() {
   return (
     <div className="p-4 max-w-full mx-auto">
       <div className="flex justify-center items-center gap-4 mb-8 bg-gray-50 rounded-lg p-4">
-        <label className="text-lg font-medium">Sélection de l'année :</label>
+        <label className="text-lg font-medium">Sélection de l&apos;année :</label>
         <select
           value={selectedYear}
           onChange={(e) => setSelectedYear(parseInt(e.target.value))}

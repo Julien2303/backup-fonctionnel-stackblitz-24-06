@@ -8,12 +8,12 @@ export default function Unauthorized() {
   return (
     <div style={{ padding: '20px', textAlign: 'center' }}>
       <h1>Accès non autorisé</h1>
-      <p>Vous n'avez pas les permissions nécessaires pour accéder à cette page.</p>
+      <p>Vous n&apos;avez pas les permissions nécessaires pour accéder à cette page.</p>
       <button
         onClick={() => router.push('/')}
         style={{ padding: '10px 20px', marginTop: '10px' }}
       >
-        Retour à l'accueil
+        Retour à l&apos;accueil
       </button>
     </div>
   );

@@ -324,7 +324,7 @@ export default function CongesVisualisationPage() {
                         className="rounded text-blue-500 focus:ring-blue-500"
                       />
                       <span className="text-sm font-medium">
-                        Réinitialiser (toute l'année)
+                        Réinitialiser (toute l&apos;année)
                       </span>
                     </label>
                   </div>
@@ -355,7 +355,7 @@ export default function CongesVisualisationPage() {
         {/* Message d'aide quand toute l'année est affichée */}
         {selectedMonths.length === 12 && (
           <div className="mt-3 p-2 bg-green-50 border border-green-200 rounded text-green-700 text-sm">
-            ✅ Toute l'année est affichée. Cliquez sur un mois spécifique dans le menu pour filtrer rapidement.
+            ✅ Toute l&apos;année est affichée. Cliquez sur un mois spécifique dans le menu pour filtrer rapidement.
           </div>
         )}
         
