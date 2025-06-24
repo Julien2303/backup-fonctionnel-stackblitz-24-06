@@ -112,7 +112,8 @@ export const useDoctorsStore = create<DoctorsStore>((set, get) => ({
       }));
     } catch (err) {
       console.error('Erreur lors de la suppression du médecin:', err);
-      set({ error: `Erreur lors de la suppression du médecin: ${err.message || 'Inconnue'}` });
+      const errorMessage = err instanceof Error ? err.message : 'Inconnue';
+      set({ error: `Erreur lors de la suppression du médecin: ${errorMessage}` });
       throw err;
     } finally {
       set({ loading: false });

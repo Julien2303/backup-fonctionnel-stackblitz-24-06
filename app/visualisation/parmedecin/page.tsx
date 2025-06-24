@@ -31,6 +31,12 @@ interface ShiftAssignment {
   pct_mutualisation: number;
 }
 
+interface StrictShiftAssignment extends ShiftAssignment {
+  machine_id: string;
+  date: string;
+  shift_type: string;
+}
+
 const DAYS = ['Lundi', 'Mardi', 'Mercredi', 'Jeudi', 'Vendredi', 'Samedi'];
 const SHIFTS = {
   Lundi: ['Matin', 'apres-midi', 'Soir'], // Changé "Après-midi" en "apres-midi"
@@ -57,7 +63,7 @@ const DoctorSchedule: React.FC = () => {
   const [selectedYear, setSelectedYear] = useState<number>(2025);
   const [doctors, setDoctors] = useState<Doctor[]>([]);
   const [machines, setMachines] = useState<Machine[]>([]);
-  const [assignments, setAssignments] = useState<ShiftAssignment[]>([]);
+  const [assignments, setAssignments] = useState<StrictShiftAssignment[]>([]);
   const [weekDays, setWeekDays] = useState<Date[]>([]);
   const [validatedWeeks, setValidatedWeeks] = useState<number[]>([]);
   const [expandedCell, setExpandedCell] = useState<{ day: string; slot: string; machineId: string } | null>(null);
@@ -145,22 +151,22 @@ const DoctorSchedule: React.FC = () => {
     }
   
     const formattedAssignments = data
-      .map((assignment: any) => {
-        if (!assignment.shifts?.date) return null;
+    .map((assignment: any) => {
+      if (!assignment.shifts?.date) return null;
   
-        return {
-          doctor_id: assignment.doctor_id,
-          machine_id: assignment.shifts?.machine_id,
-          date: assignment.shifts.date, // Utiliser directement la date du shift
-          shift_type: assignment.shifts?.shift_type,
-          teleradiologie: assignment.teleradiologie,
-          en_differe: assignment.en_differe,
-          lecture_differee: assignment.lecture_differee,
-          mutualise: assignment.mutualise,
-          pct_mutualisation: assignment.pct_mutualisation,
-        };
-      })
-      .filter((a): a is ShiftAssignment => a !== null && !!a.machine_id && !!a.date && !!a.shift_type);
+      return {
+        doctor_id: assignment.doctor_id,
+        machine_id: assignment.shifts?.machine_id,
+        date: assignment.shifts.date,
+        shift_type: assignment.shifts?.shift_type,
+        teleradiologie: assignment.teleradiologie,
+        en_differe: assignment.en_differe,
+        lecture_differee: assignment.lecture_differee,
+        mutualise: assignment.mutualise,
+        pct_mutualisation: assignment.pct_mutualisation,
+      };
+    })
+    .filter((a): a is StrictShiftAssignment => a !== null && !!a.machine_id && !!a.date && !!a.shift_type);
   
     setAssignments(formattedAssignments);
   }, [selectedWeek, selectedYear, weekDays]);

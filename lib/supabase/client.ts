@@ -6,7 +6,6 @@ const supabaseKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZS
 
 export const supabase = createClient(supabaseUrl, supabaseKey);
 
-
 // Fonction pour mettre à jour le mot de passe de l'utilisateur connecté
 export async function updatePassword(newPassword: string) {
   const { data, error } = await supabase.auth.updateUser({
@@ -23,6 +22,11 @@ export interface Maintenance {
   slot: string;
   machineId: string;
   maintenance: boolean;
+}
+
+// Interface pour les assignations groupées
+interface GroupedAssignments {
+  [key: string]: any[];
 }
 
 // --- Gestion des semaines ---
@@ -49,7 +53,7 @@ export async function upsertWeekValidation(year: number, weekNumber: number, isV
     .from('weeks')
     .upsert(
       { year, week_number: weekNumber, is_validated: isValidated },
-      { onConflict: ['year', 'week_number'] }
+      { onConflict: 'year,week_number' }
     )
     .select();
 
@@ -103,7 +107,7 @@ export async function getValidatedWeeks(year: number) {
     throw new Error(`Erreur lors de la récupération des semaines validées: ${error.message}`);
   }
 
-  return data.map((week) => week.week_number);
+  return data.map((week: any) => week.week_number);
 }
 
 // --- Gestion des shifts ---
@@ -119,7 +123,7 @@ export async function createShift(date: string, shiftType: string, machineId: st
         machine_id: machineId,
         week_id: weekId,
       },
-      { onConflict: ['date', 'shift_type', 'machine_id'] }
+      { onConflict: 'date,shift_type,machine_id' }
     )
     .select('id')
     .single();
@@ -171,31 +175,31 @@ export async function upsertDoctorAssignment(
   console.log('Existing assignments for upsert:', existingAssignments);
 
   // Vérifier les doublons pour la combinaison shift_id, doctor_id, maintenance, no_doctor
-  const matchingAssignments = existingAssignments.filter(
-    (a) =>
+  const matchingAssignments = existingAssignments?.filter(
+    (a: any) =>
       (a.doctor_id === doctorId || (doctorId === null && a.doctor_id === null)) &&
       a.maintenance === maintenance &&
       a.no_doctor === noDoctor
-  );
+  ) || [];
 
   if (matchingAssignments.length > 0) {
     // Supprimer toutes les assignations correspondantes sauf une
-    const keepAssignment = matchingAssignments.reduce((max, a) => (a.parts > max.parts ? a : max), matchingAssignments[0]);
-    const assignmentsToDelete = matchingAssignments.filter((a) => a.id !== keepAssignment.id);
+    const keepAssignment = matchingAssignments.reduce((max: any, a: any) => (a.parts > max.parts ? a : max), matchingAssignments[0]);
+    const assignmentsToDelete = matchingAssignments.filter((a: any) => a.id !== keepAssignment.id);
 
     if (assignmentsToDelete.length > 0) {
       console.warn('Doublons détectés, suppression:', assignmentsToDelete);
       const { error: deleteError } = await supabase
         .from('shift_assignments')
         .delete()
-        .in('id', assignmentsToDelete.map((a) => a.id));
+        .in('id', assignmentsToDelete.map((a: any) => a.id));
 
       if (deleteError) {
         throw new Error(`Erreur lors de la suppression des doublons: ${deleteError.message}`);
       }
     }
 
-    // Mettre à jour l’assignation existante
+    // Mettre à jour l'assignation existante
     const { error: updateError } = await supabase
       .from('shift_assignments')
       .update({
@@ -206,12 +210,12 @@ export async function upsertDoctorAssignment(
         maintenance,
         no_doctor: noDoctor,
         pct_mutualisation: 0,
-        mutualise: existingAssignments.length > 1,
+        mutualise: (existingAssignments?.length || 0) > 1,
       })
       .eq('id', keepAssignment.id);
 
     if (updateError) {
-      throw new Error(`Erreur lors de la mise à jour de l’assignation: ${updateError.message}`);
+      throw new Error(`Erreur lors de la mise à jour de l'assignation: ${updateError.message}`);
     }
 
     console.log('Assignation mise à jour:', { shiftId, doctorId, parts, maintenance, noDoctor });
@@ -229,11 +233,11 @@ export async function upsertDoctorAssignment(
         maintenance,
         no_doctor: noDoctor,
         pct_mutualisation: 0,
-        mutualise: existingAssignments.length > 0,
+        mutualise: (existingAssignments?.length || 0) > 0,
       });
 
     if (insertError) {
-      throw new Error(`Erreur lors de la création de l’assignation: ${insertError.message}`);
+      throw new Error(`Erreur lors de la création de l'assignation: ${insertError.message}`);
     }
 
     console.log('Nouvelle assignation créée:', { shiftId, doctorId, parts, maintenance, noDoctor });
@@ -250,24 +254,24 @@ export async function upsertDoctorAssignment(
   }
 
   // Recalculer les pourcentages
-  const totalParts = updatedAssignments.reduce((sum, a) => sum + a.parts, 0);
-  const updates = updatedAssignments.map((a) => ({
+  const totalParts = updatedAssignments?.reduce((sum: number, a: any) => sum + a.parts, 0) || 0;
+  const updates = updatedAssignments?.map((a: any) => ({
     id: a.id,
     shift_id: shiftId,
     doctor_id: a.doctor_id,
     parts: a.parts,
     pct_mutualisation: totalParts > 0 ? (a.parts / totalParts) * 100 : 0,
-    mutualise: updatedAssignments.length > 1,
+    mutualise: (updatedAssignments?.length || 0) > 1,
     teleradiologie: a.teleradiologie,
     en_differe: a.en_differe,
     lecture_differee: a.lecture_differee,
     maintenance: a.maintenance,
     no_doctor: a.no_doctor,
-  }));
+  })) || [];
 
   const { error: finalUpdateError } = await supabase
     .from('shift_assignments')
-    .upsert(updates, { onConflict: ['id'] });
+    .upsert(updates, { onConflict: 'id' });
 
   if (finalUpdateError) {
     throw new Error(`Erreur lors de la mise à jour des pourcentages: ${finalUpdateError.message}`);
@@ -315,25 +319,25 @@ export async function deleteDoctorAssignment(shiftId: string, doctorId: string |
   console.log('Remaining assignments after deletion:', remainingAssignments);
 
   // Vérifier les doublons pour Maintenance ou No Doctor
-  const groupedAssignments = remainingAssignments.reduce((acc, a) => {
+  const groupedAssignments: GroupedAssignments = (remainingAssignments || []).reduce((acc: GroupedAssignments, a: any) => {
     const key = `${a.shift_id}_${a.doctor_id ?? 'null'}_${a.maintenance}_${a.no_doctor}`;
     if (!acc[key]) acc[key] = [];
     acc[key].push(a);
     return acc;
   }, {});
 
-  const cleanedAssignments = [];
+  const cleanedAssignments: any[] = [];
   for (const key in groupedAssignments) {
     const group = groupedAssignments[key];
     if (group.length > 1) {
       // Garder la ligne avec le plus de parts
-      const keepAssignment = group.reduce((max, a) => (a.parts > max.parts ? a : max), group[0]);
-      const assignmentsToDelete = group.filter((a) => a.id !== keepAssignment.id);
+      const keepAssignment = group.reduce((max: any, a: any) => (a.parts > max.parts ? a : max), group[0]);
+      const assignmentsToDelete = group.filter((a: any) => a.id !== keepAssignment.id);
       console.warn('Doublons détectés, suppression:', assignmentsToDelete);
       const { error: deleteDuplicatesError } = await supabase
         .from('shift_assignments')
         .delete()
-        .in('id', assignmentsToDelete.map((a) => a.id));
+        .in('id', assignmentsToDelete.map((a: any) => a.id));
 
       if (deleteDuplicatesError) {
         throw new Error(`Erreur lors de la suppression des doublons: ${deleteDuplicatesError.message}`);
@@ -345,8 +349,8 @@ export async function deleteDoctorAssignment(shiftId: string, doctorId: string |
   }
 
   // Recalculer les pourcentages pour les assignations restantes
-  const totalParts = cleanedAssignments.reduce((sum, a) => sum + a.parts, 0);
-  const updates = cleanedAssignments.map((a) => ({
+  const totalParts = cleanedAssignments.reduce((sum: number, a: any) => sum + a.parts, 0);
+  const updates = cleanedAssignments.map((a: any) => ({
     id: a.id,
     shift_id: shiftId,
     doctor_id: a.doctor_id,
@@ -365,7 +369,7 @@ export async function deleteDoctorAssignment(shiftId: string, doctorId: string |
   if (updates.length > 0) {
     const { error: updateError } = await supabase
       .from('shift_assignments')
-      .upsert(updates, { onConflict: ['id'] });
+      .upsert(updates, { onConflict: 'id' });
 
     if (updateError) {
       throw new Error(`Erreur lors de la mise à jour des pourcentages: ${updateError.message}`);
@@ -471,7 +475,7 @@ export async function getAssignmentsForWeek(year: number, weekNumber: number) {
     if (!existingEntry) {
       existingEntry = {
         id: shift.id,
-        day: shift.date,
+        day: shift.date,  
         slot,
         machineId: shift.machine_id,
         doctors: [],
@@ -534,7 +538,7 @@ export async function getEveningAssignmentsForYear(year: number) {
     return [];
   }
 
-  const formattedData = data.map((assignment) => {
+  const formattedData = data.map((assignment: any) => {
     console.log('Processing assignment:', {
       shiftId: assignment.shift_id,
       doctorId: assignment.doctor_id,
@@ -585,15 +589,15 @@ export async function getMaintenancesForYear(year: number): Promise<Maintenance[
     throw new Error(`Erreur lors de la récupération des maintenances: ${error.message}`);
   }
 
-  const validMaintenances = data
-    .filter((assignment) => {
+  const validMaintenances = (data || [])
+    .filter((assignment: any) => {
       if (!assignment.shifts || !assignment.shifts.date || !assignment.shifts.shift_type || !assignment.shifts.machine_id) {
         console.warn('Enregistrement de maintenance invalide détecté:', assignment);
         return false;
       }
       return true;
     })
-    .map((assignment) => ({
+    .map((assignment: any) => ({
       id: assignment.id,
       shift_id: assignment.shift_id,
       date: assignment.shifts.date,
@@ -602,9 +606,9 @@ export async function getMaintenancesForYear(year: number): Promise<Maintenance[
       maintenance: true,
     }));
 
-  if (data.length !== validMaintenances.length) {
+  if ((data || []).length !== validMaintenances.length) {
     console.warn(
-      `Certains enregistrements de maintenance ont été ignorés en raison de données manquantes. Total récupéré: ${data.length}, Total valide: ${validMaintenances.length}`
+      `Certains enregistrements de maintenance ont été ignorés en raison de données manquantes. Total récupéré: ${(data || []).length}, Total valide: ${validMaintenances.length}`
     );
   }
 
@@ -635,7 +639,7 @@ export async function upsertTypicalWeekAssignment(
           no_doctor: true,
         },
         {
-          onConflict: ['year', 'week_type', 'day', 'slot', 'machine_id'],
+          onConflict: 'year,week_type,day,slot,machine_id',
         }
       )
       .select()
@@ -683,7 +687,7 @@ export async function getTypicalWeekAssignments(year: number, weekType: 'even' |
       .eq('week_type', weekType);
 
     if (error) throw error;
-    return (data || []).map((assignment) => ({
+    return (data || []).map((assignment: any) => ({
       ...assignment,
       slot: assignment.slot === 'apres-midi' ? 'Après-midi' : assignment.slot.charAt(0).toUpperCase() + assignment.slot.slice(1),
     }));
@@ -739,7 +743,7 @@ export async function upsertGarde(garde: {
   jour_ferie?: boolean;
   medecin_cds_id?: string;
   medecin_st_ex_id?: string;
-  noel?: boolean;
+  noel?: boolean;  
   nouvel_an?: boolean;
 }) {
   const { data, error } = await supabase
@@ -758,7 +762,6 @@ export async function upsertGarde(garde: {
 
   return data;
 }
-
 // Fonction pour supprimer l'affectation d'un médecin
 export async function removeGardeAssignment(date: string, clinic: 'CDS' | 'ST EX') {
   const field = clinic === 'CDS' ? 'medecin_cds_id' : 'medecin_st_ex_id';
@@ -816,9 +819,15 @@ export async function removeGardeAssignment(date: string, clinic: 'CDS' | 'ST EX
 }
 
 // --- Gestion des congés ---
-
 // Fonction pour récupérer les congés d'une semaine donnée
 export async function getCongesForWeek(year: number, weekNumber: number) {
+  // Types pour clarifier la structure des données
+  interface CongeData {
+    date: string;
+    doctor_id: string;
+    doctors: { initials: string } | { initials: string }[] | null;
+  }
+
   const startDate = new Date(year, 0, 1);
   startDate.setDate(startDate.getDate() + (weekNumber - 1) * 7 - startDate.getDay() + 1);
   const endDate = new Date(startDate);
@@ -842,12 +851,24 @@ export async function getCongesForWeek(year: number, weekNumber: number) {
     throw new Error(`Erreur lors de la récupération des congés: ${error.message}`);
   }
 
-  const congesByDate = data.reduce((acc, conge) => {
+  const congesByDate = (data as CongeData[]).reduce((acc, conge) => {
     const date = conge.date;
     if (!acc[date]) {
       acc[date] = [];
     }
-    acc[date].push(conge.doctors.initials);
+    
+    // Extraction des initiales selon le format retourné
+    let doctorInitials: string | undefined;
+    
+    if (Array.isArray(conge.doctors)) {
+      doctorInitials = conge.doctors[0]?.initials;
+    } else if (conge.doctors && typeof conge.doctors === 'object') {
+      doctorInitials = conge.doctors.initials;
+    }
+    
+    if (doctorInitials) {
+      acc[date].push(doctorInitials);
+    }
     return acc;
   }, {} as Record<string, string[]>);
 

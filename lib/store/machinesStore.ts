@@ -1,6 +1,6 @@
 'use client';
 import { create } from 'zustand';
-import { Machine } from '../types/machine';
+import { Machine } from '../types/machines';
 import { supabase } from '../supabase/client';
 
 interface MachinesStore {

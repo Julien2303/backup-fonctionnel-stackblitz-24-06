@@ -121,8 +121,9 @@ export const WeekNavigation: React.FC<WeekNavigationProps> = ({
   };
 
   const handleYearChange = async (e: React.ChangeEvent<HTMLSelectElement>) => {
+    let year: number | undefined; // Allow year to be undefined
     try {
-      const year = parseInt(e.target.value);
+      year = parseInt(e.target.value);
       if (isNaN(year) || year < 1970 || year > 9999) {
         throw new Error(`Invalid year: ${year}`);
       }
@@ -138,7 +139,7 @@ export const WeekNavigation: React.FC<WeekNavigationProps> = ({
       setExpandedCell(null);
       setSelectedDoctor(null);
     } catch (error) {
-      console.error(`Erreur lors du changement d'année pour ${year}:`, error);
+      console.error(`Erreur lors du changement d'année pour ${year ?? 'inconnue'}:`, error);
     } finally {
       setIsLoading(false);
     }
