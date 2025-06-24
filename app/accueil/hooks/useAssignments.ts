@@ -211,8 +211,8 @@ export const useAssignments = () => {
           updatedOptions.teleradiologie,
           updatedOptions.en_differe,
           updatedOptions.lecture_differee,
-          false, // maintenance
-          false  // noDoctor
+          false,
+          false
         );
 
         // Rafraîchir les assignations depuis Supabase pour synchroniser l'état
@@ -270,8 +270,8 @@ export const useAssignments = () => {
             doctor.teleradiologie,
             doctor.differe,
             doctor.plusDiffere,
-            false, // maintenance
-            false  // noDoctor
+            false,
+            false
           );
         }
 
@@ -331,8 +331,8 @@ export const useAssignments = () => {
           doctor.teleradiologie,
           doctor.differe,
           doctor.plusDiffere,
-          false, // maintenance
-          false  // noDoctor
+          false,
+          false
         );
 
         // Rafraîchir les assignations depuis Supabase
