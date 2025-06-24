@@ -20,11 +20,11 @@ export const MachineFilter: React.FC<MachineFilterProps> = ({
 
   // Regrouper les machines par site
   const siteGroups = Array.from(
-    new Map(
+    new Set(
       machines
-        .filter((m) => m.site)
-        .map((m) => [m.site, m])
-    ).keys()
+        .filter((m) => m.site !== undefined)
+        .map((m) => m.site!)
+    )
   );
 
   // Machines sans site

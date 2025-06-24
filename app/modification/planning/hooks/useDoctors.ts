@@ -5,7 +5,7 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '@/lib/supabase/client';
-import { Doctor } from './types';
+import { Doctor } from '../types';
 
 export const useDoctors = () => {
   const [doctors, setDoctors] = useState<Doctor[]>([]);

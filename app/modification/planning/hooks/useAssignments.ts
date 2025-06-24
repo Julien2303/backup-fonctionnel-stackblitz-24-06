@@ -1,6 +1,6 @@
 import { useState, useCallback } from 'react';
 import { supabase, getOrCreateWeekId, createShift, upsertDoctorAssignment, deleteDoctorAssignment, getAssignmentsForWeek, getCongesForWeek } from '@/lib/supabase/client';
-import { Assignment } from './types';
+import { Assignment } from '../types';
 import { getWeekNumber as getWeekNumberUtil } from '@/app/modification/planning/utils';
 
 export const useAssignments = () => {

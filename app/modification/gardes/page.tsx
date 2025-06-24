@@ -197,12 +197,12 @@ export default function GardesPage() {
       jour_ferie: existingGarde ? !existingGarde.jour_ferie : true,
       noel: specialDays.noel,
       nouvel_an: specialDays.nouvel_an,
-      medecin_cds_id: existingGarde?.medecin_cds_id || null,
-      medecin_st_ex_id: existingGarde?.medecin_st_ex_id || null
+      medecin_cds_id: existingGarde?.medecin_cds_id || undefined, // Remplacer null par undefined
+      medecin_st_ex_id: existingGarde?.medecin_st_ex_id || undefined // Remplacer null par undefined
     };
-
+  
     console.log('Toggling holiday for:', { dateStr, newGarde });
-
+  
     const updatedGarde = await upsertGarde(newGarde);
     if (updatedGarde) {
       setGardes(prev => {
@@ -215,7 +215,6 @@ export default function GardesPage() {
         return [...prev, updatedGarde];
       });
     } else {
-      // Si la mise à jour échoue, vérifier si la garde doit être supprimée
       if (existingGarde && !newGarde.jour_ferie && !newGarde.medecin_cds_id && !newGarde.medecin_st_ex_id && !newGarde.noel && !newGarde.nouvel_an) {
         const { error: deleteError } = await supabase
           .from('gardes')

@@ -13,7 +13,7 @@ interface Doctor {
 }
 
 interface Conge {
-  id: string;
+  id?: string;
   doctor_id: string;
   date: string;
   is_conge: boolean;
@@ -156,56 +156,57 @@ export default function CongesPage() {
   }, [selectedYear, authLoading, authError]);
 
   // Créer ou mettre à jour un congé
-  const upsertConge = async (conge: Conge) => {
-    const { data, error } = await supabase
-      .from('conges')
-      .upsert(conge, { onConflict: ['doctor_id', 'date'] })
-      .select()
-      .single();
+const upsertConge = async (conge: Conge) => {
+  const { data, error } = await supabase
+    .from('conges')
+    .upsert(conge, { onConflict: 'doctor_id,date' }) // Use a comma-separated string
+    .select()
+    .single();
 
-    if (error) {
-      console.error('Erreur lors de la mise à jour du congé:', error);
-      return null;
-    }
+  if (error) {
+    console.error('Erreur lors de la mise à jour du congé:', error);
+    return null;
+  }
 
-    return data;
+  return data;
+};
+
+// Gérer le clic pour basculer l'état d'un congé
+const toggleConge = async (dateStr: string, doctorId: string) => {
+  const existingConge = conges.find(c => c.date === dateStr && c.doctor_id === doctorId);
+  const newConge: Conge = {
+    id: existingConge?.id || undefined, // Now compatible with optional id
+    doctor_id: doctorId,
+    date: dateStr,
+    is_conge: !existingConge?.is_conge
   };
 
-  // Gérer le clic pour basculer l'état d'un congé
-  const toggleConge = async (dateStr: string, doctorId: string) => {
-    const existingConge = conges.find(c => c.date === dateStr && c.doctor_id === doctorId);
-    const newConge: Conge = {
-      id: existingConge?.id || undefined,
-      doctor_id: doctorId,
-      date: dateStr,
-      is_conge: !existingConge?.is_conge
-    };
-
-    const updatedConge = await upsertConge(newConge);
-    if (updatedConge) {
-      setConges(prev => {
-        const index = prev.findIndex(c => c.date === dateStr && c.doctor_id === doctorId);
-        if (index >= 0) {
-          const newConges = [...prev];
-          newConges[index] = updatedConge;
-          return newConges;
-        }
-        return [...prev, updatedConge];
-      });
-    } else if (existingConge && !newConge.is_conge) {
-      // Supprimer le congé si is_conge devient false
-      const { error: deleteError } = await supabase
-        .from('conges')
-        .delete()
-        .eq('doctor_id', doctorId)
-        .eq('date', dateStr);
-      if (deleteError) {
-        console.error('Erreur lors de la suppression du congé:', deleteError);
-        return;
+  const updatedConge = await upsertConge(newConge);
+  if (updatedConge) {
+    setConges(prev => {
+      const index = prev.findIndex(c => c.date === dateStr && c.doctor_id === doctorId);
+      if (index >= 0) {
+        const newConges = [...prev];
+        newConges[index] = updatedConge;
+        return newConges;
       }
-      setConges(prev => prev.filter(c => !(c.date === dateStr && c.doctor_id === doctorId)));
+      return [...prev, updatedConge];
+    });
+  } else if (existingConge && !newConge.is_conge) {
+    
+    // Supprimer le congé si is_conge devient false
+    const { error: deleteError } = await supabase
+      .from('conges')
+      .delete()
+      .eq('doctor_id', doctorId)
+      .eq('date', dateStr);
+    if (deleteError) {
+      console.error('Erreur lors de la suppression du congé:', deleteError);
+      return;
     }
-  };
+    setConges(prev => prev.filter(c => !(c.date === dateStr && c.doctor_id === doctorId)));
+  }
+};
 
   // Calculer le total des congés par médecin
   const getTotalConges = (doctorId: string) => {

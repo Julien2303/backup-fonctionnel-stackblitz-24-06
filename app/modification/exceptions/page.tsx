@@ -28,6 +28,17 @@ interface PunctualException {
   exception_horaire: number;
 }
 
+interface RecurringExceptionResponse {
+  id: string;
+  day_of_week: number;
+  shift_type: string;
+  machine_id: string | null;
+  machines: { name: string } | null; // Correspond à la colonne `name` de la table `machines`
+  start_date: string | null;
+  end_date: string | null;
+  exception_hours: number;
+}
+
 interface Machine {
   id: string;
   name: string;
@@ -36,6 +47,26 @@ interface Machine {
 interface Doctor {
   id: string;
   initials: string;
+}
+
+interface PunctualExceptionResponse {
+  id: string;
+  shift_id: string;
+  doctor_id: string | null;
+  doctors: { initials: string } | null; // Relation avec la table doctors
+  exception_horaire: number;
+  shifts: {
+    date: string;
+    shift_type: string;
+    machine_id: string;
+    machines: { name: string } | null; // Sous-relation avec la table machines
+  } | null; // Relation avec la table shifts
+}
+
+interface ShiftAssignmentResponse {
+  doctor_id: string | null;
+  doctors: { initials: string } | null; // Relation avec la table doctors
+  no_doctor: boolean;
 }
 
 export default function ExceptionsPage() {
@@ -109,137 +140,150 @@ export default function ExceptionsPage() {
   }, [authLoading, authError]);
 
   // Récupérer les exceptions récurrentes pour l'année sélectionnée
-  useEffect(() => {
-    const fetchRecurringExceptions = async () => {
-      if (authLoading || authError) return;
-      
-      const { data, error } = await supabase
-        .from('recurring_hour_exceptions')
-        .select(`
-          id,
-          day_of_week,
-          shift_type,
-          machine_id,
-          machines(name),
-          start_date,
-          end_date,
-          exception_hours
-        `)
-        .gte('start_date', `${year}-01-01`)
-        .lte('end_date', `${year}-12-31`);
-      if (error) {
-        toast.error('Erreur lors de la récupération des exceptions récurrentes');
-        console.error('Erreur exceptions récurrentes:', error);
-        return;
-      }
-      console.log('Exceptions récurrentes récupérées:', data);
-      setRecurringExceptions(
-        data.map((item) => ({
-          ...item,
-          machine_name: item.machines?.name || 'Toutes',
-        }))
-      );
-    };
-    fetchRecurringExceptions();
-  }, [year, authLoading, authError]);
+useEffect(() => {
+  const fetchRecurringExceptions = async () => {
+    if (authLoading || authError) return;
 
-  // Récupérer les exceptions ponctuelles pour l'année sélectionnée
-  useEffect(() => {
-    const fetchPunctualExceptions = async () => {
-      if (authLoading || authError) return;
-      
-      const { data, error } = await supabase
-        .from('shift_assignments')
-        .select(`
-          id,
-          shift_id,
-          doctor_id,
-          doctors(initials),
-          exception_horaire,
-          shifts(date, shift_type, machine_id, machines(name))
-        `)
-        .not('exception_horaire', 'is', null)
-        .gte('shifts.date', `${year}-01-01`)
-        .lte('shifts.date', `${year}-12-31`);
-      if (error) {
-        toast.error('Erreur lors de la récupération des exceptions ponctuelles');
-        console.error('Erreur exceptions ponctuelles:', error);
-        return;
-      }
-      console.log('Exceptions ponctuelles récupérées:', data);
-      setPunctualExceptions(
-        data.map((item) => ({
-          id: item.id,
-          shift_id: item.shift_id,
-          doctor_id: item.doctor_id,
-          doctor_initials: item.doctors?.initials || null,
-          date: item.shifts.date,
-          shift_type: item.shifts.shift_type,
-          machine_id: item.shifts.machine_id,
-          machine_name: item.shifts.machines.name,
-          exception_horaire: item.exception_horaire,
-        }))
-      );
-    };
-    fetchPunctualExceptions();
-  }, [year, authLoading, authError]);
+    const { data, error } = await supabase
+      .from('recurring_hour_exceptions')
+      .select(`
+        id,
+        day_of_week,
+        shift_type,
+        machine_id,
+        machines(name),
+        start_date,
+        end_date,
+        exception_hours
+      `)
+      .gte('start_date', `${year}-01-01`)
+      .lte('end_date', `${year}-12-31`) as { data: RecurringExceptionResponse[] | null; error: any };
 
-  // Récupérer les médecins disponibles pour une vacation spécifique
-  useEffect(() => {
-    const fetchAvailableDoctors = async () => {
-      if (authLoading || authError) return;
-      if (!newPunctual.date || !newPunctual.shift_type || !newPunctual.machine_id) {
-        setAvailableDoctors([]);
-        setNoDoctorMessage('');
-        return;
-      }
-      // Récupérer le shift correspondant
-      const { data: shiftData, error: shiftError } = await supabase
-        .from('shifts')
-        .select('id')
-        .eq('date', newPunctual.date)
-        .eq('shift_type', newPunctual.shift_type)
-        .eq('machine_id', newPunctual.machine_id)
-        .single();
-      if (shiftError || !shiftData) {
-        setAvailableDoctors([]);
-        setNoDoctorMessage('Aucun shift trouvé pour cette date, vacation et machine');
-        console.error('Erreur shift:', shiftError);
-        return;
-      }
-      const { data, error } = await supabase
-        .from('shift_assignments')
-        .select(`
-          doctor_id,
-          doctors(initials),
-          no_doctor
-        `)
-        .eq('shift_id', shiftData.id);
-      if (error) {
-        toast.error('Erreur lors de la récupération des médecins pour la vacation');
-        console.error('Erreur médecins disponibles:', error);
-        return;
-      }
-      console.log('Assignations récupérées:', data);
-      if (data.length === 0 || data.some((item) => item.no_doctor)) {
-        setAvailableDoctors([]);
-        setNoDoctorMessage('Pas de médecin posté sur cette vacation');
-        return;
-      }
-      const validDoctors = data
-        .filter((item) => item.doctor_id && !item.no_doctor)
-        .map((item) => ({
-          id: item.doctor_id,
-          initials: item.doctors.initials,
-        }));
-      setAvailableDoctors(validDoctors);
-      setNoDoctorMessage(validDoctors.length === 0 ? 'Pas de médecin posté sur cette vacation' : '');
-      if (validDoctors.length > 0) {
-        setNewPunctual((prev) => ({ ...prev, doctor_id: validDoctors[0].id }));
-      }
-    };
-    fetchAvailableDoctors();
-  }, [newPunctual.date, newPunctual.shift_type, newPunctual.machine_id, authLoading, authError]);
+    if (error) {
+      toast.error('Erreur lors de la récupération des exceptions récurrentes');
+      console.error('Erreur exceptions récurrentes:', error);
+      return;
+    }
+
+    console.log('Exceptions récurrentes récupérées:', data);
+    setRecurringExceptions(
+      (data || []).map((item: RecurringExceptionResponse) => ({
+        id: item.id,
+        day_of_week: item.day_of_week,
+        shift_type: item.shift_type,
+        machine_id: item.machine_id,
+        machine_name: item.machines?.name || 'Toutes', // Accès correct à `name`
+        start_date: item.start_date,
+        end_date: item.end_date,
+        exception_hours: item.exception_hours,
+      }))
+    );
+  };
+  fetchRecurringExceptions();
+}, [year, authLoading, authError]);
+
+
+ // Récupérer les exceptions ponctuelles pour l'année sélectionnée
+useEffect(() => {
+  const fetchPunctualExceptions = async () => {
+    if (authLoading || authError) return;
+
+    const { data, error } = await supabase
+      .from('shift_assignments')
+      .select(`
+        id,
+        shift_id,
+        doctor_id,
+        doctors(initials),
+        exception_horaire,
+        shifts(date, shift_type, machine_id, machines(name))
+      `)
+      .not('exception_horaire', 'is', null)
+      .gte('shifts.date', `${year}-01-01`)
+      .lte('shifts.date', `${year}-12-31`) as { data: PunctualExceptionResponse[] | null; error: any };
+
+    if (error) {
+      toast.error('Erreur lors de la récupération des exceptions ponctuelles');
+      console.error('Erreur exceptions ponctuelles:', error);
+      return;
+    }
+
+    console.log('Exceptions ponctuelles récupérées:', JSON.stringify(data, null, 2));
+    setPunctualExceptions(
+      (data || []).map((item: PunctualExceptionResponse) => ({
+        id: item.id,
+        shift_id: item.shift_id,
+        doctor_id: item.doctor_id,
+        doctor_initials: item.doctors?.initials || null,
+        date: item.shifts?.date || '', // Gestion des cas où shifts est null
+        shift_type: item.shifts?.shift_type || '',
+        machine_id: item.shifts?.machine_id || '',
+        machine_name: item.shifts?.machines?.name || '', // Gestion des cas où machines est null
+        exception_horaire: item.exception_horaire,
+      }))
+    );
+  };
+  fetchPunctualExceptions();
+}, [year, authLoading, authError]);
+
+// Récupérer les médecins disponibles pour une vacation spécifique
+useEffect(() => {
+  const fetchAvailableDoctors = async () => {
+    if (authLoading || authError) return;
+    if (!newPunctual.date || !newPunctual.shift_type || !newPunctual.machine_id) {
+      setAvailableDoctors([]);
+      setNoDoctorMessage('');
+      return;
+    }
+    // Récupérer le shift correspondant
+    const { data: shiftData, error: shiftError } = await supabase
+      .from('shifts')
+      .select('id')
+      .eq('date', newPunctual.date)
+      .eq('shift_type', newPunctual.shift_type)
+      .eq('machine_id', newPunctual.machine_id)
+      .single();
+    if (shiftError || !shiftData) {
+      setAvailableDoctors([]);
+      setNoDoctorMessage('Aucun shift trouvé pour cette date, vacation et machine');
+      console.error('Erreur shift:', shiftError);
+      return;
+    }
+    const { data, error } = await supabase
+      .from('shift_assignments')
+      .select(`
+        doctor_id,
+        doctors(initials),
+        no_doctor
+      `)
+      .eq('shift_id', shiftData.id) as { data: ShiftAssignmentResponse[] | null; error: any };
+    if (error) {
+      toast.error('Erreur lors de la récupération des médecins pour la vacation');
+      console.error('Erreur médecins disponibles:', error);
+      return;
+    }
+    console.log('Assignations récupérées:', JSON.stringify(data, null, 2));
+    // Vérifier si data est null
+    if (!data || data.length === 0 || data.some((item) => item.no_doctor)) {
+      setAvailableDoctors([]);
+      setNoDoctorMessage('Pas de médecin posté sur cette vacation');
+      return;
+    }
+    const validDoctors = data
+      .filter((item: ShiftAssignmentResponse) => item.doctor_id && !item.no_doctor)
+      .map((item: ShiftAssignmentResponse) => ({
+        id: item.doctor_id!,
+        initials: item.doctors?.initials || '',
+      }));
+    setAvailableDoctors(validDoctors);
+    setNoDoctorMessage(validDoctors.length === 0 ? 'Pas de médecin posté sur cette vacation' : '');
+    if (validDoctors.length > 0) {
+      setNewPunctual((prev) => ({ ...prev, doctor_id: validDoctors[0].id }));
+    }
+  };
+  fetchAvailableDoctors();
+}, [newPunctual.date, newPunctual.shift_type, newPunctual.machine_id, authLoading, authError]);
+
 
   // Ajouter une exception récurrente
   const addRecurringException = async () => {
