@@ -201,7 +201,7 @@ export default function PlanningPage() {
             <th rowSpan={2} className={`p-1 text-center min-w-[6rem] whitespace-nowrap border-r-2 border-gray-600 bg-gray-100 ${!showLeaves ? 'hidden' : ''}`}>Congés</th>
             {sortedSites.map((site, siteIndex) => (
               <th
-                key={site}
+                key={`site-header-${site}-${siteIndex}`}
                 colSpan={machines.filter(m => m.site === site && selectedMachines.includes(m.id)).length}
                 className={`p-1 text-center border-b border-gray-400 text-sm bg-gray-100 ${siteSeparationIndices.includes(siteIndex + 1) ? 'border-r-2 border-gray-600' : ''}`}
               >
@@ -220,7 +220,7 @@ export default function PlanningPage() {
           <tr className="bg-gray-100">
             {orderedMachines.map((machine, machineIndex) => (
               <th
-                key={machine.id}
+              key={`machine-header-${machine.id}-${machineIndex}`}
                 className={`p-1 text-center border-b-2 border-gray-600 text-sm ${separationIndices.includes(machineIndex) ? 'border-r-2 border-gray-600' : ''} ${fixedColumnWidth}`}
               >
                 <div className="font-medium">{machine.name}</div>
@@ -240,10 +240,10 @@ export default function PlanningPage() {
             const dayKey = formatDateKey(day);
             const slotsToShow = dayIndex === 5 ? ['Matin'] : timeSlots;
             return (
-              <React.Fragment key={day.toString()}>
+              <React.Fragment key={`planning-day-${day.toString()}-${dayIndex}`}>
                 {slotsToShow.map((slot, slotIndex) => (
                   <tr
-                    key={`${day.toString()}-${slot}`}
+                  key={`planning-row-${day.toString()}-${slot}-${slotIndex}`}
                     className={`border-t ${dayIndex !== 0 && slotIndex === 0 ? 'border-t-2 border-gray-600' : 'border-gray-400'} ${dayIndex === 0 && slotIndex === 0 ? 'border-t-2' : ''}`}
                   >
                     {slotIndex === 0 ? (
@@ -266,7 +266,7 @@ export default function PlanningPage() {
                     ) : null}
                     {orderedMachines.map((machine, machineIndex) => (
                       <td
-                        key={`${dayKey}-${slot}-${machine.id}`}
+                      key={`assignment-cell-${dayKey}-${slot}-${machine.id}-${machineIndex}`}
                         className={`p-0 ${separationIndices.includes(machineIndex) ? 'border-r-2 border-gray-600' : ''} ${fixedColumnWidth}`}
                       >
                         <AssignmentCell

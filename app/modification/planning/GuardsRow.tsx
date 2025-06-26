@@ -54,7 +54,7 @@ export const GuardsRow: React.FC<GuardsRowProps> = ({ day, machines, selectedMac
 
   return (
     <>
-      <tr key={`${day.toString()}-guard`} className="border-t border-gray-400 h-6">
+      <tr key={`guard-row-${day.toString()}-${garde?.date || 'nogarde'}`} className="border-t border-gray-400 h-6">
         <td
           colSpan={2}
           className="p-0.5 bg-gray-100 text-center border-r-2 border-gray-600 w-60 text-xs"
@@ -71,7 +71,7 @@ export const GuardsRow: React.FC<GuardsRowProps> = ({ day, machines, selectedMac
           const doctor = site === 'CDS' ? garde?.medecin_cds : site === 'ST EX' ? garde?.medecin_st_ex : null;
           return (
             <td
-              key={`${site}-guard`}
+            key={`guard-cell-${site}-${day.toString()}`}
               colSpan={machinesInSite.length}
               className={`p-0.5 text-center border-r ${
                 separationIndices.includes(machinesInSite.length - 1 + machinesInSite.length * siteIndex)
@@ -100,7 +100,7 @@ export const GuardsRow: React.FC<GuardsRowProps> = ({ day, machines, selectedMac
         )}
       </tr>
       {isSaturday && (
-        <tr key={`${day.toString()}-sunday-guard`} className="border-t border-gray-400 h-6">
+        <tr key={`sunday-guard-row-${day.toString()}-${sundayGarde?.date || 'nogarde'}`} className="border-t border-gray-400 h-6">
           <td
             colSpan={2}
             className="p-0.5 bg-gray-100 text-center border-r-2 border-gray-600 w-60 text-xs"

@@ -133,7 +133,7 @@ export const AssignmentCell: React.FC<AssignmentCellProps> = ({
     if (doctorAssignment.maintenance) {
       return (
         <div 
-          key={`MAINT-${index}`}
+        key={`doctor-assignment-MAINT-${day}-${slot}-${machine.id}-${index}`}
           className={`flex items-center justify-center h-full cursor-pointer doctor-initials ${
             index < assignedDoctors.length - 1 ? 'border-r border-gray-200' : ''
           }`}
@@ -156,7 +156,7 @@ export const AssignmentCell: React.FC<AssignmentCellProps> = ({
     if (doctorAssignment.noDoctor) {
       return (
         <div 
-          key={`NO_DOCTOR-${index}`}
+        key={`doctor-assignment-NO_DOCTOR-${day}-${slot}-${machine.id}-${index}`}
           className={`flex items-center justify-center h-full cursor-pointer doctor-initials ${
             index < assignedDoctors.length - 1 ? 'border-r border-gray-200' : ''
           }`}
@@ -212,7 +212,7 @@ export const AssignmentCell: React.FC<AssignmentCellProps> = ({
   
     return (
       <div 
-        key={doctorAssignment.doctorId}
+      key={`doctor-assignment-${doctorAssignment.doctorId}-${day}-${slot}-${machine.id}`}
         className={`flex items-center justify-center h-full cursor-pointer doctor-initials relative group ${
           index < assignedDoctors.length - 1 ? 'border-r border-gray-200' : ''
         }`}
