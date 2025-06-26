@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
 import { supabase } from '@/lib/supabase/client';
 import { useAuth } from '@/lib/auth';
 
@@ -35,8 +35,8 @@ export default function CongesPage() {
   const [loading, setLoading] = useState(false);
   const { loading: authLoading, error: authError, role } = useAuth(['admin', 'gestion']);
 
-  // Fonction pour calculer le numéro de semaine ISO
-  const getISOWeekNumber = (date: Date): number => {
+  // Fonction pour calculer le numéro de semaine ISO - déplacée dans useCallback
+  const getISOWeekNumber = useCallback((date: Date): number => {
     const d = new Date(date);
     d.setHours(0, 0, 0, 0);
     d.setDate(d.getDate() + 4 - (d.getDay() || 7));
@@ -53,10 +53,10 @@ export default function CongesPage() {
       return Math.round((d.getTime() - prevYearFirstMonday.getTime()) / (7 * 24 * 60 * 60 * 1000)) + 1;
     }
     return weekNumber;
-  };
+  }, []);
 
-  // Générer les jours de l'année pour toutes les semaines ISO
-  const generateDays = (year: number) => {
+  // Générer les jours de l'année - déplacée dans useCallback
+  const generateDays = useCallback((year: number) => {
     const firstThursday = new Date(year, 0, 4);
     const firstMonday = new Date(firstThursday);
     firstMonday.setDate(firstThursday.getDate() - (firstThursday.getDay() || 7) + 1);
@@ -79,32 +79,37 @@ export default function CongesPage() {
       currentDate.setDate(currentDate.getDate() + 1);
     }
     return days;
-  };
+  }, [getISOWeekNumber]);
 
-  const days = generateDays(selectedYear);
+  // Utiliser useMemo pour les jours
+  const days = useMemo(() => generateDays(selectedYear), [generateDays, selectedYear]);
 
   // Fonction pour formater une date au format YYYY-MM-DD
-  function formatDateForDB(date: Date): string {
+  const formatDateForDB = useCallback((date: Date): string => {
     const year = date.getFullYear();
     const month = String(date.getMonth() + 1).padStart(2, '0');
     const day = String(date.getDate()).padStart(2, '0');
     return `${year}-${month}-${day}`;
-  }
+  }, []);
 
   // Récupérer les médecins associés
   useEffect(() => {
     async function fetchDoctors() {
-      const { data, error } = await supabase
-        .from('doctors')
-        .select('id, first_name, last_name, initials, color')
-        .eq('type', 'associé')
-        .eq('is_active', true);
+      try {
+        const { data, error } = await supabase
+          .from('doctors')
+          .select('id, first_name, last_name, initials, color')
+          .eq('type', 'associé')
+          .eq('is_active', true);
 
-      if (error) {
-        console.error('Erreur lors de la récupération des médecins:', error);
-        return;
+        if (error) {
+          console.error('Erreur lors de la récupération des médecins:', error);
+          return;
+        }
+        setDoctors(data || []);
+      } catch (err) {
+        console.error('Erreur inattendue:', err);
       }
-      setDoctors(data || []);
     }
     
     if (!authLoading && !authError) {
@@ -118,103 +123,117 @@ export default function CongesPage() {
       if (authLoading || authError) return;
       
       setLoading(true);
-      const allDays = generateDays(selectedYear);
-      const startDate = formatDateForDB(allDays[0].date);
-      const endDate = formatDateForDB(allDays[allDays.length - 1].date);
+      
+      try {
+        const allDays = generateDays(selectedYear);
+        const startDate = formatDateForDB(allDays[0].date);
+        const endDate = formatDateForDB(allDays[allDays.length - 1].date);
 
-      // Récupérer les congés
-      const { data: congesData, error: congesError } = await supabase
-        .from('conges')
-        .select('*')
-        .gte('date', startDate)
-        .lte('date', endDate);
+        // Récupérer les congés et gardes en parallèle avec Promise.all
+        const [congesResult, gardesResult] = await Promise.all([
+          supabase
+            .from('conges')
+            .select('*')
+            .gte('date', startDate)
+            .lte('date', endDate),
+          supabase
+            .from('gardes')
+            .select('date, jour, jour_ferie, noel, nouvel_an')
+            .gte('date', startDate)
+            .lte('date', endDate)
+        ]);
 
-      if (congesError) {
-        console.error('Erreur lors de la récupération des congés:', congesError);
+        if (congesResult.error) {
+          console.error('Erreur lors de la récupération des congés:', congesResult.error);
+        } else {
+          setConges(congesResult.data || []);
+        }
+
+        if (gardesResult.error) {
+          console.error('Erreur lors de la récupération des gardes:', gardesResult.error);
+        } else {
+          setGardes(gardesResult.data || []);
+        }
+      } catch (err) {
+        console.error('Erreur inattendue lors de la récupération des données:', err);
+      } finally {
         setLoading(false);
-        return;
       }
-
-      // Récupérer les gardes pour les jours fériés
-      const { data: gardesData, error: gardesError } = await supabase
-        .from('gardes')
-        .select('date, jour, jour_ferie, noel, nouvel_an')
-        .gte('date', startDate)
-        .lte('date', endDate);
-
-      if (gardesError) {
-        console.error('Erreur lors de la récupération des gardes:', gardesError);
-        setLoading(false);
-        return;
-      }
-
-      setConges(congesData || []);
-      setGardes(gardesData || []);
-      setLoading(false);
     }
+    
     fetchData();
-  }, [selectedYear, authLoading, authError, generateDays]);
+  }, [selectedYear, authLoading, authError, generateDays, formatDateForDB]);
 
   // Créer ou mettre à jour un congé
-const upsertConge = async (conge: Conge) => {
-  const { data, error } = await supabase
-    .from('conges')
-    .upsert(conge, { onConflict: 'doctor_id,date' }) // Use a comma-separated string
-    .select()
-    .single();
+  const upsertConge = useCallback(async (conge: Conge) => {
+    try {
+      const { data, error } = await supabase
+        .from('conges')
+        .upsert(conge, { onConflict: 'doctor_id,date' })
+        .select()
+        .single();
 
-  if (error) {
-    console.error('Erreur lors de la mise à jour du congé:', error);
-    return null;
-  }
-
-  return data;
-};
-
-// Gérer le clic pour basculer l'état d'un congé
-const toggleConge = async (dateStr: string, doctorId: string) => {
-  const existingConge = conges.find(c => c.date === dateStr && c.doctor_id === doctorId);
-  const newConge: Conge = {
-    id: existingConge?.id || undefined, // Now compatible with optional id
-    doctor_id: doctorId,
-    date: dateStr,
-    is_conge: !existingConge?.is_conge
-  };
-
-  const updatedConge = await upsertConge(newConge);
-  if (updatedConge) {
-    setConges(prev => {
-      const index = prev.findIndex(c => c.date === dateStr && c.doctor_id === doctorId);
-      if (index >= 0) {
-        const newConges = [...prev];
-        newConges[index] = updatedConge;
-        return newConges;
+      if (error) {
+        console.error('Erreur lors de la mise à jour du congé:', error);
+        return null;
       }
-      return [...prev, updatedConge];
-    });
-  } else if (existingConge && !newConge.is_conge) {
-    
-    // Supprimer le congé si is_conge devient false
-    const { error: deleteError } = await supabase
-      .from('conges')
-      .delete()
-      .eq('doctor_id', doctorId)
-      .eq('date', dateStr);
-    if (deleteError) {
-      console.error('Erreur lors de la suppression du congé:', deleteError);
-      return;
+
+      return data;
+    } catch (err) {
+      console.error('Erreur inattendue lors de la mise à jour:', err);
+      return null;
     }
-    setConges(prev => prev.filter(c => !(c.date === dateStr && c.doctor_id === doctorId)));
-  }
-};
+  }, []);
+
+  // Gérer le clic pour basculer l'état d'un congé
+  const toggleConge = useCallback(async (dateStr: string, doctorId: string) => {
+    const existingConge = conges.find(c => c.date === dateStr && c.doctor_id === doctorId);
+    const newConge: Conge = {
+      id: existingConge?.id || undefined,
+      doctor_id: doctorId,
+      date: dateStr,
+      is_conge: !existingConge?.is_conge
+    };
+
+    const updatedConge = await upsertConge(newConge);
+    if (updatedConge) {
+      setConges(prev => {
+        const index = prev.findIndex(c => c.date === dateStr && c.doctor_id === doctorId);
+        if (index >= 0) {
+          const newConges = [...prev];
+          newConges[index] = updatedConge;
+          return newConges;
+        }
+        return [...prev, updatedConge];
+      });
+    } else if (existingConge && !newConge.is_conge) {
+      try {
+        // Supprimer le congé si is_conge devient false
+        const { error: deleteError } = await supabase
+          .from('conges')
+          .delete()
+          .eq('doctor_id', doctorId)
+          .eq('date', dateStr);
+        
+        if (deleteError) {
+          console.error('Erreur lors de la suppression du congé:', deleteError);
+          return;
+        }
+        
+        setConges(prev => prev.filter(c => !(c.date === dateStr && c.doctor_id === doctorId)));
+      } catch (err) {
+        console.error('Erreur inattendue lors de la suppression:', err);
+      }
+    }
+  }, [conges, upsertConge]);
 
   // Calculer le total des congés par médecin
-  const getTotalConges = (doctorId: string) => {
+  const getTotalConges = useCallback((doctorId: string) => {
     return conges.filter(c => c.doctor_id === doctorId && c.is_conge).length;
-  };
+  }, [conges]);
 
-  // Générer les options d'années
-  const years = Array.from({ length: 10 }, (_, i) => 2025 + i);
+  // Générer les options d'années - utiliser useMemo
+  const years = useMemo(() => Array.from({ length: 10 }, (_, i) => 2025 + i), []);
 
   // Les retours conditionnels doivent venir APRÈS tous les hooks
   if (authLoading) {
@@ -277,9 +296,12 @@ const toggleConge = async (dateStr: string, doctorId: string) => {
               const isHoliday = garde?.jour_ferie || false;
               const dayName = date.toLocaleDateString('fr-FR', { weekday: 'long' });
 
+              // Créer une clé unique pour éviter les duplicatas
+              const uniqueKey = `${dateStr}-${weekNumber}`;
+
               return (
                 <tr
-                  key={dateStr}
+                  key={uniqueKey}
                   className={`${isWeekend || isHoliday ? 'bg-gray-100' : 'bg-white'} hover:bg-gray-50 h-10`}
                 >
                   <td className="border p-2 text-center">S{weekNumber}</td>
@@ -294,7 +316,7 @@ const toggleConge = async (dateStr: string, doctorId: string) => {
                     const conge = conges.find(c => c.date === dateStr && c.doctor_id === doctor.id);
                     return (
                       <td
-                        key={doctor.id}
+                        key={`${doctor.id}-${dateStr}`}
                         className="border p-2 text-center cursor-pointer"
                         style={{ backgroundColor: (isWeekend || isHoliday) ? '#F3F4F6' : doctor.color }}
                         onClick={() => toggleConge(dateStr, doctor.id)}
@@ -316,7 +338,7 @@ const toggleConge = async (dateStr: string, doctorId: string) => {
               <td colSpan={3} className="border p-2 text-center font-bold">Total</td>
               {doctors.map(doctor => (
                 <td
-                  key={doctor.id}
+                  key={`total-${doctor.id}`}
                   className="border p-2 text-center"
                   style={{ backgroundColor: doctor.color }}
                 >

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
 import { supabase } from '@/lib/supabase/client';
 import { useAuth } from '@/lib/auth';
 
@@ -42,7 +42,7 @@ export default function CongesVisualisationPage() {
   const [isMonthDropdownOpen, setIsMonthDropdownOpen] = useState(false);
 
   // Liste des mois avec leurs noms (constant, pas un état)
-  const months = [
+  const months = useMemo(() => [
     { value: 1, name: 'Janvier' },
     { value: 2, name: 'Février' },
     { value: 3, name: 'Mars' },
@@ -55,7 +55,72 @@ export default function CongesVisualisationPage() {
     { value: 10, name: 'Octobre' },
     { value: 11, name: 'Novembre' },
     { value: 12, name: 'Décembre' }
-  ];
+  ], []);
+
+  // Fonction pour calculer le numéro de semaine ISO (stabilisée avec useCallback)
+  const getISOWeekNumber = useCallback((date: Date): number => {
+    const d = new Date(date);
+    d.setHours(0, 0, 0, 0);
+    d.setDate(d.getDate() + 4 - (d.getDay() || 7));
+    const yearStart = new Date(d.getFullYear(), 0, 1);
+    const firstThursday = new Date(d.getFullYear(), 0, 4);
+    const firstMonday = new Date(firstThursday);
+    firstMonday.setDate(firstThursday.getDate() - (firstThursday.getDay() || 7) + 1);
+    const weekNumber = Math.round((d.getTime() - firstMonday.getTime()) / (7 * 24 * 60 * 60 * 1000)) + 1;
+    
+    if (weekNumber < 1) {
+      const prevYear = new Date(d.getFullYear() - 1, 0, 4);
+      const prevYearFirstMonday = new Date(prevYear);
+      prevYearFirstMonday.setDate(prevYear.getDate() - (prevYear.getDay() || 7) + 1);
+      return Math.round((d.getTime() - prevYearFirstMonday.getTime()) / (7 * 24 * 60 * 60 * 1000)) + 1;
+    }
+    return weekNumber;
+  }, []);
+
+  // Générer les jours de l'année pour toutes les semaines ISO (stabilisée avec useCallback)
+  const generateDays = useCallback((year: number) => {
+    const firstThursday = new Date(year, 0, 4);
+    const firstMonday = new Date(firstThursday);
+    firstMonday.setDate(firstThursday.getDate() - (firstThursday.getDay() || 7) + 1);
+    
+    const nextYearFirstThursday = new Date(year + 1, 0, 4);
+    const nextYearFirstMonday = new Date(nextYearFirstThursday);
+    nextYearFirstMonday.setDate(nextYearFirstThursday.getDate() - (nextYearFirstThursday.getDay() || 7) + 1);
+    const lastSunday = new Date(nextYearFirstMonday);
+    lastSunday.setDate(nextYearFirstMonday.getDate() - 1);
+    
+    const days = [];
+    let currentDate = new Date(firstMonday);
+
+    while (currentDate <= lastSunday) {
+      const weekNumber = getISOWeekNumber(currentDate);
+      days.push({ 
+        date: new Date(currentDate), 
+        weekNumber: weekNumber
+      });
+      currentDate.setDate(currentDate.getDate() + 1);
+    }
+    return days;
+  }, [getISOWeekNumber]);
+
+  // Filtrer les jours selon les mois sélectionnés (avec useMemo pour éviter les recalculs)
+  const filteredDays = useMemo(() => {
+    const allDays = generateDays(selectedYear);
+    if (selectedMonths.length === 0) return [];
+    
+    return allDays.filter(day => {
+      const month = day.date.getMonth() + 1;
+      return selectedMonths.includes(month);
+    });
+  }, [generateDays, selectedYear, selectedMonths]);
+
+  // Fonction pour formater une date au format YYYY-MM-DD (stabilisée avec useCallback)
+  const formatDateForDB = useCallback((date: Date): string => {
+    const year = date.getFullYear();
+    const month = String(date.getMonth() + 1).padStart(2, '0');
+    const day = String(date.getDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
+  }, []);
 
   // Initialisation des mois sélectionnés
   useEffect(() => {
@@ -79,73 +144,6 @@ export default function CongesVisualisationPage() {
     document.addEventListener('mousedown', handleClickOutside);
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, [authLoading]);
-
-  // Fonction pour calculer le numéro de semaine ISO
-  const getISOWeekNumber = (date: Date): number => {
-    const d = new Date(date);
-    d.setHours(0, 0, 0, 0);
-    d.setDate(d.getDate() + 4 - (d.getDay() || 7));
-    const yearStart = new Date(d.getFullYear(), 0, 1);
-    const firstThursday = new Date(d.getFullYear(), 0, 4);
-    const firstMonday = new Date(firstThursday);
-    firstMonday.setDate(firstThursday.getDate() - (firstThursday.getDay() || 7) + 1);
-    const weekNumber = Math.round((d.getTime() - firstMonday.getTime()) / (7 * 24 * 60 * 60 * 1000)) + 1;
-    
-    if (weekNumber < 1) {
-      const prevYear = new Date(d.getFullYear() - 1, 0, 4);
-      const prevYearFirstMonday = new Date(prevYear);
-      prevYearFirstMonday.setDate(prevYear.getDate() - (prevYear.getDay() || 7) + 1);
-      return Math.round((d.getTime() - prevYearFirstMonday.getTime()) / (7 * 24 * 60 * 60 * 1000)) + 1;
-    }
-    return weekNumber;
-  };
-
-  // Générer les jours de l'année pour toutes les semaines ISO
-  const generateDays = (year: number) => {
-    const firstThursday = new Date(year, 0, 4);
-    const firstMonday = new Date(firstThursday);
-    firstMonday.setDate(firstThursday.getDate() - (firstThursday.getDay() || 7) + 1);
-    
-    const nextYearFirstThursday = new Date(year + 1, 0, 4);
-    const nextYearFirstMonday = new Date(nextYearFirstThursday);
-    nextYearFirstMonday.setDate(nextYearFirstThursday.getDate() - (nextYearFirstThursday.getDay() || 7) + 1);
-    const lastSunday = new Date(nextYearFirstMonday);
-    lastSunday.setDate(nextYearFirstMonday.getDate() - 1);
-    
-    const days = [];
-    let currentDate = new Date(firstMonday);
-
-    while (currentDate <= lastSunday) {
-      const weekNumber = getISOWeekNumber(currentDate);
-      days.push({ 
-        date: new Date(currentDate), 
-        weekNumber: weekNumber
-      });
-      currentDate.setDate(currentDate.getDate() + 1);
-    }
-    return days;
-  };
-
-  // Filtrer les jours selon les mois sélectionnés
-  const getFilteredDays = () => {
-    const allDays = generateDays(selectedYear);
-    if (selectedMonths.length === 0) return [];
-    
-    return allDays.filter(day => {
-      const month = day.date.getMonth() + 1;
-      return selectedMonths.includes(month);
-    });
-  };
-
-  const filteredDays = getFilteredDays();
-
-  // Fonction pour formater une date au format YYYY-MM-DD
-  function formatDateForDB(date: Date): string {
-    const year = date.getFullYear();
-    const month = String(date.getMonth() + 1).padStart(2, '0');
-    const day = String(date.getDate()).padStart(2, '0');
-    return `${year}-${month}-${day}`;
-  }
 
   // Récupérer les médecins associés
   useEffect(() => {
@@ -208,22 +206,22 @@ export default function CongesVisualisationPage() {
       setLoading(false);
     }
     fetchData();
-  }, [selectedYear, authLoading, generateDays]);
+  }, [selectedYear, authLoading, generateDays, formatDateForDB]);
 
-  // Calculer le total des congés par médecin
-  const getTotalConges = (doctorId: string) => {
+  // Calculer le total des congés par médecin (avec useCallback pour la stabilité)
+  const getTotalConges = useCallback((doctorId: string) => {
     return conges.filter(c => 
       c.doctor_id === doctorId && 
       c.is_conge && 
       selectedMonths.includes(Number(c.date.split('-')[1]))
     ).length;
-  };
+  }, [conges, selectedMonths]);
 
-  // Générer les options d'années
-  const years = Array.from({ length: 10 }, (_, i) => 2025 + i);
+  // Générer les options d'années (avec useMemo)
+  const years = useMemo(() => Array.from({ length: 10 }, (_, i) => 2025 + i), []);
 
   // Gérer la sélection des mois avec logique spéciale
-  const handleMonthToggle = (monthValue: number) => {
+  const handleMonthToggle = useCallback((monthValue: number) => {
     setSelectedMonths(prev => {
       if (prev.length === 12) {
         return [monthValue];
@@ -235,22 +233,22 @@ export default function CongesVisualisationPage() {
         return [...prev, monthValue].sort((a, b) => a - b);
       }
     });
-  };
+  }, []);
 
   // Réinitialiser à toute l'année
-  const handleSelectAllMonths = () => {
+  const handleSelectAllMonths = useCallback(() => {
     setSelectedMonths([1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12]);
-  };
+  }, []);
 
-  // Formater l'affichage des mois sélectionnés
-  const getSelectedMonthsText = () => {
+  // Formater l'affichage des mois sélectionnés (avec useMemo)
+  const selectedMonthsText = useMemo(() => {
     if (selectedMonths.length === 0) return "Aucun mois sélectionné";
     if (selectedMonths.length === 12) return "Toute l'année (cliquez sur un mois pour filtrer)";
     if (selectedMonths.length <= 3) {
       return selectedMonths.map(m => months.find(month => month.value === m)?.name).join(", ");
     }
     return `${selectedMonths.length} mois sélectionnés`;
-  };
+  }, [selectedMonths, months]);
 
   // Gestion des états de chargement et d'erreur
   if (authLoading || !isInitialized) {
@@ -299,7 +297,7 @@ export default function CongesVisualisationPage() {
                 className="w-full p-2 border border-gray-300 rounded-md bg-white text-left focus:ring-2 focus:ring-blue-500 focus:border-transparent flex items-center justify-between"
               >
                 <span className="truncate text-sm">
-                  {getSelectedMonthsText()}
+                  {selectedMonthsText}
                 </span>
                 <svg
                   className={`w-4 h-4 transition-transform ${isMonthDropdownOpen ? 'rotate-180' : ''}`}

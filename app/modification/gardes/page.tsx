@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
 import { supabase } from '@/lib/supabase/client';
 import { removeGardeAssignment } from '@/lib/supabase/client';
 import { useAuth } from '@/lib/auth';
@@ -42,8 +42,8 @@ export default function GardesPage() {
 
   const { loading: authLoading, error: authError, role } = useAuth(['admin', 'gestion']);
 
-  // Fonction pour calculer le numéro de semaine ISO
-  const getISOWeekNumber = (date: Date): number => {
+  // Fonction pour calculer le numéro de semaine ISO (stable avec useCallback)
+  const getISOWeekNumber = useCallback((date: Date): number => {
     const d = new Date(date);
     d.setHours(0, 0, 0, 0);
     d.setDate(d.getDate() + 4 - (d.getDay() || 7));
@@ -60,10 +60,10 @@ export default function GardesPage() {
       return Math.round((d.getTime() - prevYearFirstMonday.getTime()) / (7 * 24 * 60 * 60 * 1000)) + 1;
     }
     return weekNumber;
-  };
+  }, []);
 
-  // Générer les jours de l'année pour toutes les semaines ISO
-  const generateDays = (year: number) => {
+  // Générer les jours de l'année pour toutes les semaines ISO (stable avec useCallback)
+  const generateDays = useCallback((year: number) => {
     const firstThursday = new Date(year, 0, 4);
     const firstMonday = new Date(firstThursday);
     firstMonday.setDate(firstThursday.getDate() - (firstThursday.getDay() || 7) + 1);
@@ -86,27 +86,28 @@ export default function GardesPage() {
       currentDate.setDate(currentDate.getDate() + 1);
     }
     return days;
-  };
+  }, [getISOWeekNumber]);
 
-  const days = generateDays(selectedYear);
+  // Utiliser useMemo pour les jours au lieu de les recalculer à chaque rendu
+  const days = useMemo(() => generateDays(selectedYear), [generateDays, selectedYear]);
 
   // Fonction pour formater une date au format YYYY-MM-DD sans décalage de fuseau horaire
-  function formatDateForDB(date: Date): string {
+  const formatDateForDB = useCallback((date: Date): string => {
     const year = date.getFullYear();
     const month = String(date.getMonth() + 1).padStart(2, '0');
     const day = String(date.getDate()).padStart(2, '0');
     return `${year}-${month}-${day}`;
-  }
+  }, []);
 
   // Fonction pour vérifier si c'est Noël ou Nouvel An
-  const checkSpecialDays = (date: Date) => {
+  const checkSpecialDays = useCallback((date: Date) => {
     const month = date.getMonth() + 1;
     const day = date.getDate();
     return {
       noel: month === 12 && day === 25,
       nouvel_an: month === 1 && day === 1
     };
-  };
+  }, []);
 
   // Récupérer les médecins associés
   useEffect(() => {
@@ -128,16 +129,15 @@ export default function GardesPage() {
     fetchDoctors();
   }, [authLoading, authError]);
 
-  // Récupérer les gardes pour l'année sélectionnée, incluant les jours des semaines ISO
+  // Récupérer les gardes pour l'année sélectionnée - FIXÉ : supprimer generateDays des dépendances
   useEffect(() => {
     async function fetchGardes() {
       if (authLoading || authError) return;
       
       setLoading(true);
       // Calculer la plage de dates en fonction des jours générés
-      const allDays = generateDays(selectedYear);
-      const startDate = formatDateForDB(allDays[0].date);
-      const endDate = formatDateForDB(allDays[allDays.length - 1].date);
+      const startDate = formatDateForDB(days[0].date);
+      const endDate = formatDateForDB(days[days.length - 1].date);
 
       console.log('Fetching gardes for range:', { startDate, endDate });
 
@@ -161,11 +161,15 @@ export default function GardesPage() {
       setGardes(data || []);
       setLoading(false);
     }
-    fetchGardes();
-  }, [selectedYear, authLoading, authError, generateDays]);
+
+    // Ne s'exécuter que si on a des jours à traiter
+    if (days.length > 0) {
+      fetchGardes();
+    }
+  }, [selectedYear, authLoading, authError, days, formatDateForDB]); // Garder days mais pas generateDays
 
   // Créer ou mettre à jour une garde
-  const upsertGarde = async (garde: Garde) => {
+  const upsertGarde = useCallback(async (garde: Garde) => {
     const { data, error } = await supabase
       .from('gardes')
       .upsert(garde, { onConflict: 'date' })
@@ -182,10 +186,10 @@ export default function GardesPage() {
     }
 
     return data;
-  };
+  }, []);
 
   // Gérer le clic pour basculer l'état d'un jour férié
-  const toggleHoliday = async (dateStr: string) => {
+  const toggleHoliday = useCallback(async (dateStr: string) => {
     const date = new Date(dateStr);
     const dayName = date.toLocaleDateString('fr-FR', { weekday: 'long' });
     const specialDays = checkSpecialDays(date);
@@ -197,8 +201,8 @@ export default function GardesPage() {
       jour_ferie: existingGarde ? !existingGarde.jour_ferie : true,
       noel: specialDays.noel,
       nouvel_an: specialDays.nouvel_an,
-      medecin_cds_id: existingGarde?.medecin_cds_id || undefined, // Remplacer null par undefined
-      medecin_st_ex_id: existingGarde?.medecin_st_ex_id || undefined // Remplacer null par undefined
+      medecin_cds_id: existingGarde?.medecin_cds_id || undefined,
+      medecin_st_ex_id: existingGarde?.medecin_st_ex_id || undefined
     };
   
     console.log('Toggling holiday for:', { dateStr, newGarde });
@@ -227,10 +231,10 @@ export default function GardesPage() {
         setGardes(prev => prev.filter(g => g.date !== dateStr));
       }
     }
-  };
+  }, [gardes, checkSpecialDays, upsertGarde]);
 
   // Gérer le clic gauche sur une cellule pour ouvrir le menu contextuel
-  const handleCellClick = (e: React.MouseEvent, dateStr: string, clinic: string) => {
+  const handleCellClick = useCallback((e: React.MouseEvent, dateStr: string, clinic: string) => {
     e.preventDefault();
     e.stopPropagation();
     
@@ -252,10 +256,10 @@ export default function GardesPage() {
     
     setSelectedCell({ date: dateStr, clinic });
     setContextMenuPosition({ x: e.clientX, y: yPosition });
-  };
+  }, [doctors.length, gardes]);
 
   // Gérer la sélection d'un médecin
-  const handleDoctorSelect = async (doctor: Doctor) => {
+  const handleDoctorSelect = useCallback(async (doctor: Doctor) => {
     if (!selectedCell) return;
 
     const date = new Date(selectedCell.date);
@@ -287,10 +291,10 @@ export default function GardesPage() {
 
     setContextMenuPosition(null);
     setSelectedCell(null);
-  };
+  }, [selectedCell, checkSpecialDays, gardes, upsertGarde]);
 
   // Gérer la suppression d'une affectation
-  const handleDeleteAssignment = async () => {
+  const handleDeleteAssignment = useCallback(async () => {
     if (!selectedCell) return;
 
     console.log('Deleting assignment for:', selectedCell);
@@ -302,11 +306,9 @@ export default function GardesPage() {
       const index = prev.findIndex(g => g.date === selectedCell.date);
       if (index >= 0) {
         if (!updatedGarde) {
-          // Si la garde a été supprimée, retirer de l'état
           console.log('Garde removed from state:', selectedCell.date);
           return prev.filter(g => g.date !== selectedCell.date);
         }
-        // Mettre à jour la garde avec les nouvelles données
         console.log('Updating garde in state:', updatedGarde);
         const newGardes = [...prev];
         newGardes[index] = {
@@ -321,7 +323,7 @@ export default function GardesPage() {
 
     setContextMenuPosition(null);
     setSelectedCell(null);
-  };
+  }, [selectedCell]);
 
   // Fermer le menu contextuel si on clique ailleurs
   useEffect(() => {
@@ -338,7 +340,7 @@ export default function GardesPage() {
   }, []);
 
   // Obtenir les informations d'affectation pour une date et clinique
-  const getAssignmentInfo = (dateStr: string, clinic: string) => {
+  const getAssignmentInfo = useCallback((dateStr: string, clinic: string) => {
     const garde = gardes.find(g => g.date === dateStr);
     if (!garde) return null;
 
@@ -350,10 +352,10 @@ export default function GardesPage() {
       initials: doctor.initials,
       color: doctor.color
     } : null;
-  };
+  }, [gardes, doctors]);
 
   // Générer les options d'années
-  const years = Array.from({ length: 10 }, (_, i) => 2025 + i);
+  const years = useMemo(() => Array.from({ length: 10 }, (_, i) => 2025 + i), []);
 
   // Les retours conditionnels doivent venir APRÈS tous les hooks
   if (authLoading) {
