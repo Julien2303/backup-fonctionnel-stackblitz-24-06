@@ -1,7 +1,7 @@
 // lib/auth.ts
 import { supabase } from './supabase/client';
 import { useRouter } from 'next/navigation';
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef } from 'react';
 
 interface AuthResult {
   loading: boolean;
@@ -16,17 +16,19 @@ export function useAuth(allowedRoles: string[]) {
     error: null,
     role: null,
   });
+  const checkingRef = useRef(false); // Pour éviter les vérifications concurrentes
 
   useEffect(() => {
     async function checkAuth() {
+      // Éviter les vérifications multiples
+      if (checkingRef.current) return;
+      checkingRef.current = true;
+
       try {
         // Vérifier la session
-        const {
-          data: { session },
-        } = await supabase.auth.getSession();
-        console.log('Session dans useAuth:', session);
-
-        if (!session) {
+        const { data: { session }, error: sessionError } = await supabase.auth.getSession();
+        
+        if (sessionError || !session) {
           console.log('Aucune session, redirection vers /login');
           router.push('/login');
           return;
@@ -41,7 +43,6 @@ export function useAuth(allowedRoles: string[]) {
 
         if (profileError || !profile) {
           console.error('Erreur profil:', profileError);
-          setAuthResult({ loading: false, error: 'Profil non trouvé', role: null });
           router.push('/unauthorized');
           return;
         }
@@ -49,22 +50,27 @@ export function useAuth(allowedRoles: string[]) {
         // Vérifier si le rôle est autorisé
         if (!allowedRoles.includes(profile.role)) {
           console.log('Rôle non autorisé:', profile.role);
-          setAuthResult({ loading: false, error: 'Accès non autorisé', role: profile.role });
           router.push('/unauthorized');
           return;
         }
 
-        console.log('Authentification réussie, rôle:', profile.role);
-        setAuthResult({ loading: false, error: null, role: profile.role });
+        // Mettre à jour l'état seulement si nécessaire
+        setAuthResult(prev => {
+          if (prev.loading || prev.role !== profile.role || prev.error !== null) {
+            return { loading: false, error: null, role: profile.role };
+          }
+          return prev;
+        });
       } catch (err) {
         console.error('Erreur dans useAuth:', err);
-        setAuthResult({ loading: false, error: 'Erreur inattendue', role: null });
         router.push('/unauthorized');
+      } finally {
+        checkingRef.current = false;
       }
     }
 
     checkAuth();
-  }, [router, allowedRoles]);
+  }, [router, allowedRoles.join()]); // Utiliser joined array comme dépendance
 
   return authResult;
 }
