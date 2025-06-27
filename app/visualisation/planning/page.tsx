@@ -11,7 +11,6 @@ import { Doctor, Machine, Garde } from './types';
 import { getWeekDays, formatFrenchDate, getWeekNumber, formatDateKey, getDateOfWeek } from './utils';
 import { useAuth } from '@/lib/auth';
 
-// Composant pour afficher une cellule d'assignation statique
 const StaticAssignmentCell: React.FC<{
   day: string;
   slot: string;
@@ -35,11 +34,10 @@ const StaticAssignmentCell: React.FC<{
   const renderDoctorInitials = (doctorAssignment: any, index: number) => {
     const widthPercentage = totalShares > 0 ? (doctorAssignment.share / totalShares) * 100 : 100;
 
-    // Vacation spéciale : Maintenance
     if (doctorAssignment.maintenance) {
       return (
         <div
-          key={`MAINT-${index}`}
+          key={`MAINT-${machine.id}-${day}-${slot}-${index}`}
           className={`flex items-center justify-center h-full ${
             index < assignedDoctors.length - 1 ? 'border-r border-gray-200' : ''
           }`}
@@ -55,11 +53,10 @@ const StaticAssignmentCell: React.FC<{
       );
     }
 
-    // Vacation spéciale : Sans Médecin
     if (doctorAssignment.noDoctor) {
       return (
         <div
-          key={`NO_DOCTOR-${index}`}
+          key={`NO_DOCTOR-${machine.id}-${day}-${slot}-${index}`}
           className={`flex items-center justify-center h-full ${
             index < assignedDoctors.length - 1 ? 'border-r border-gray-200' : ''
           }`}
@@ -70,12 +67,10 @@ const StaticAssignmentCell: React.FC<{
             marginLeft: index === 0 ? '0px' : '0',
           }}
         >
-          {/* Pas de texte pour SANS_DOCTEUR */}
         </div>
       );
     }
 
-    // Médecin assigné
     const doctor = doctors.find((d) => d.id === doctorAssignment.doctorId);
     if (!doctor) return null;
 
@@ -105,7 +100,7 @@ const StaticAssignmentCell: React.FC<{
 
     return (
       <div
-        key={doctorAssignment.doctorId || index}
+        key={`${doctor.id}-${machine.id}-${day}-${slot}-${index}`}
         className={`flex items-center justify-center h-full ${
           index < assignedDoctors.length - 1 ? 'border-r border-gray-200' : ''
         }`}
@@ -137,31 +132,29 @@ const StaticAssignmentCell: React.FC<{
   );
 };
 
-// Composant principal de la page
 export default function VisualizationPlanningPage() {
   const { loading: authLoading, error: authError, role } = useAuth(['admin', 'gestion', 'user']);
   const today = new Date();
-  const [currentDate, setCurrentDate] = useState<Date | null>(null); // Initialisé à null
-  const [selectedWeek, setSelectedWeek] = useState<number>(0); // Initialisé à 0
+  const [currentDate, setCurrentDate] = useState<Date | null>(null);
+  const [selectedWeek, setSelectedWeek] = useState<number>(0);
   const [selectedYear, setSelectedYear] = useState<number>(today.getFullYear());
   const [gardes, setGardes] = useState<Garde[]>([]);
   const [conges, setConges] = useState<Record<string, string[]>>({});
   const [validatedWeeks, setValidatedWeeks] = useState<number[]>([]);
   const [zoomLevel, setZoomLevel] = useState<number>(100);
   const [error, setError] = useState<string | null>(null);
-  const [isLoading, setIsLoading] = useState<boolean>(true); // État pour le chargement initial
+  const [isLoading, setIsLoading] = useState<boolean>(true);
 
   const { doctors, loadDoctors } = useDoctors();
   const { machines, loadMachines } = useMachines();
   const { assignments, loadAssignments, isLoadingAssignments } = useAssignments();
 
-  // Trouver la semaine validée la plus proche
   const findClosestValidatedWeek = (week: number, year: number, validated: number[]): { week: number; year: number } => {
     if (validated.includes(week)) {
       return { week, year };
     }
     const sortedWeeks = validated.sort((a, b) => a - b);
-    let closestWeek = sortedWeeks[0] || 1; // Par défaut, première semaine validée
+    let closestWeek = sortedWeeks[0] || 1;
     let minDiff = Infinity;
     sortedWeeks.forEach((w) => {
       const diff = Math.abs(w - week);
@@ -173,7 +166,6 @@ export default function VisualizationPlanningPage() {
     return { week: closestWeek, year };
   };
 
-  // Charger les données initiales
   useEffect(() => {
     const initializeData = async () => {
       try {
@@ -183,7 +175,6 @@ export default function VisualizationPlanningPage() {
         const validated = await getValidatedWeeks(selectedYear);
         setValidatedWeeks(validated);
 
-        // Déterminer la semaine validée la plus proche
         const { week: todayWeek, year: todayYear } = getWeekNumber(today);
         const { week: closestWeek, year: closestYear } = findClosestValidatedWeek(todayWeek, todayYear, validated);
         const closestDate = getDateOfWeek(closestWeek, closestYear);
@@ -207,7 +198,6 @@ export default function VisualizationPlanningPage() {
     initializeData();
   }, [loadDoctors, loadMachines, selectedYear]);
 
-  // Charger les affectations
   useEffect(() => {
     if (machines.length > 0 && selectedWeek > 0 && currentDate && selectedYear >= 1970 && selectedYear <= 9999) {
       try {
@@ -220,7 +210,6 @@ export default function VisualizationPlanningPage() {
     }
   }, [machines, selectedWeek, selectedYear, loadAssignments, currentDate]);
 
-  // Gestion du zoom
   const handleZoomIn = useCallback(() => {
     setZoomLevel((prev) => Math.min(prev + 5, 200));
   }, []);
@@ -238,7 +227,6 @@ export default function VisualizationPlanningPage() {
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [handleZoomIn, handleZoomOut]);
 
-  // Rendu du tableau de planning
   const renderPlanningTable = () => {
     if (error) {
       return <div className="p-4 text-red-600">{error}</div>;
@@ -260,7 +248,6 @@ export default function VisualizationPlanningPage() {
       return <div className="p-4 text-red-600">Aucune donnée disponible pour cette semaine.</div>;
     }
 
-    // Organiser les sites et machines
     const sites = Array.from(new Set(machines.map((m) => m.site).filter((site): site is string => site !== undefined)));
     const sortedSites = sites.sort((a, b) => {
       if (a === 'CDS') return -1;
@@ -270,7 +257,6 @@ export default function VisualizationPlanningPage() {
       return a.localeCompare(b);
     });
     
-
     const orderedMachines = sortedSites.flatMap((site) =>
       machines.filter((m) => m.site === site)
     );
@@ -323,7 +309,7 @@ export default function VisualizationPlanningPage() {
             </th>
             {sortedSites.map((site, siteIndex) => (
               <th
-                key={site}
+                key={`site-header-${site}`}
                 colSpan={machines.filter((m) => m.site === site).length}
                 className={`p-1 text-center border-b border-gray-400 text-sm bg-gray-100 ${
                   siteSeparationIndices.includes(siteIndex) ? 'border-r-2 border-gray-600' : 'border-r border-gray-400'
@@ -334,6 +320,7 @@ export default function VisualizationPlanningPage() {
             ))}
             {uniqueMachinesWithoutSite.length > 0 && (
               <th
+                key="no-site-header"
                 colSpan={uniqueMachinesWithoutSite.length}
                 className="p-1 text-center border-b border-gray-400 text-sm bg-gray-100"
               >
@@ -344,7 +331,7 @@ export default function VisualizationPlanningPage() {
           <tr className="bg-gray-100">
             {orderedMachines.map((machine, machineIndex) => (
               <th
-                key={machine.id}
+                key={`machine-header-${machine.id}`}
                 className={`p-1 text-center border-b-2 border-gray-600 text-sm ${
                   separationIndices.includes(machineIndex) ? 'border-r-2 border-gray-600' : 'border-r border-gray-400'
                 } ${fixedColumnWidth}`}
@@ -370,11 +357,12 @@ export default function VisualizationPlanningPage() {
             const dayDate = formatFrenchDate(day);
             const dayKey = formatDateKey(day);
             const slotsToShow = dayIndex === 5 ? ['Matin'] : ['Matin', 'Après-midi', 'Soir'];
+            
             return (
-              <React.Fragment key={day.toString()}>
+              <React.Fragment key={`day-fragment-${dayKey}`}>
                 {slotsToShow.map((slot, slotIndex) => (
                   <tr
-                    key={`${day.toString()}-${slot}`}
+                    key={`day-slot-row-${dayKey}-${slot.toLowerCase()}`}
                     className={`border-t ${
                       dayIndex !== 0 && slotIndex === 0 ? 'border-t-2 border-gray-600' : 'border-gray-400'
                     } ${dayIndex === 0 && slotIndex === 0 ? 'border-t-2' : ''}`}
@@ -403,7 +391,7 @@ export default function VisualizationPlanningPage() {
                     ) : null}
                     {orderedMachines.map((machine, machineIndex) => (
                       <td
-                        key={`${dayKey}-${slot}-${machine.id}`}
+                        key={`assignment-cell-${dayKey}-${slot.toLowerCase()}-${machine.id}`}
                         className={`p-0 border-t border-b ${
                           separationIndices.includes(machineIndex) ? 'border-r-2 border-gray-600' : 'border-r border-gray-400'
                         } ${fixedColumnWidth}`}
@@ -422,11 +410,12 @@ export default function VisualizationPlanningPage() {
                   </tr>
                 ))}
                 <GuardsRow
+                  key={`guards-row-${dayKey}`}
                   day={day}
                   machines={machines}
                   selectedMachines={machines.map((m) => m.id)}
                   showLeaves={true}
-                  garde={gardes.find((g) => g.date === formatDateKey(day))}
+                  garde={gardes.find((g) => g.date === dayKey)}
                   isSaturday={dayIndex === 5}
                   gardes={gardes}
                 />
@@ -438,7 +427,6 @@ export default function VisualizationPlanningPage() {
     );
   };
 
-  // Conditional rendering based on auth state
   if (authLoading) {
     return <div className="p-5">Chargement...</div>;
   }
