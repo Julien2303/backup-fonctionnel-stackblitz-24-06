@@ -4,6 +4,7 @@ import React, { useEffect, useRef, useState } from 'react';
 import { Doctor, Machine, DoctorAssignment } from './types';
 import { groupDoctorsByType } from './utils';
 import { supabase } from '@/lib/supabase/client';
+import ReactDOM from 'react-dom';
 
 interface AssignmentCellProps {
   day: string;
@@ -51,7 +52,6 @@ export const AssignmentCell: React.FC<AssignmentCellProps> = ({
   const cellRef = useRef<HTMLTableCellElement>(null);
   const [exceptionHoursMap, setExceptionHoursMap] = useState<Record<string, number | null>>({});
 
-  // Fonction pour mettre à jour exceptionHoursMap
   const updateExceptionHours = (doctorId: string, hours: number | null) => {
     console.log('Updating exception hours:', { doctorId, hours });
     setExceptionHoursMap(prev => {
@@ -61,7 +61,6 @@ export const AssignmentCell: React.FC<AssignmentCellProps> = ({
     });
   };
 
-  // Charger les exceptions horaires pour les médecins assignés
   useEffect(() => {
     const loadExceptionHours = async () => {
       const shift = assignments.find(a => a.day === day && a.slot === slot && a.machineId === machine.id);
@@ -133,7 +132,7 @@ export const AssignmentCell: React.FC<AssignmentCellProps> = ({
     if (doctorAssignment.maintenance) {
       return (
         <div 
-        key={`doctor-assignment-MAINT-${day}-${slot}-${machine.id}-${index}`}
+          key={`doctor-assignment-MAINT-${day}-${slot}-${machine.id}-${index}`}
           className={`flex items-center justify-center h-full cursor-pointer doctor-initials ${
             index < assignedDoctors.length - 1 ? 'border-r border-gray-200' : ''
           }`}
@@ -156,7 +155,7 @@ export const AssignmentCell: React.FC<AssignmentCellProps> = ({
     if (doctorAssignment.noDoctor) {
       return (
         <div 
-        key={`doctor-assignment-NO_DOCTOR-${day}-${slot}-${machine.id}-${index}`}
+          key={`doctor-assignment-NO_DOCTOR-${day}-${slot}-${machine.id}-${index}`}
           className={`flex items-center justify-center h-full cursor-pointer doctor-initials ${
             index < assignedDoctors.length - 1 ? 'border-r border-gray-200' : ''
           }`}
@@ -188,7 +187,6 @@ export const AssignmentCell: React.FC<AssignmentCellProps> = ({
       fontSizeClass = 'text-xs';
     }
   
-    // Ajoutez cette ligne ici
     const exceptionHours = doctorAssignment.doctorId ? exceptionHoursMap[doctorAssignment.doctorId] : null;
   
     console.log('Rendering doctor initials:', {
@@ -197,7 +195,7 @@ export const AssignmentCell: React.FC<AssignmentCellProps> = ({
       teleradiologie: doctorAssignment.teleradiologie,
       differe: doctorAssignment.differe,
       plusDiffere: doctorAssignment.plusDiffere,
-      exceptionHours: exceptionHours // Utilisez la variable ici
+      exceptionHours
     });
   
     const textClass = [
@@ -212,7 +210,7 @@ export const AssignmentCell: React.FC<AssignmentCellProps> = ({
   
     return (
       <div 
-      key={`doctor-assignment-${doctorAssignment.doctorId}-${day}-${slot}-${machine.id}`}
+        key={`doctor-assignment-${doctorAssignment.doctorId}-${day}-${slot}-${machine.id}`}
         className={`flex items-center justify-center h-full cursor-pointer doctor-initials relative group ${
           index < assignedDoctors.length - 1 ? 'border-r border-gray-200' : ''
         }`}
@@ -241,342 +239,289 @@ export const AssignmentCell: React.FC<AssignmentCellProps> = ({
   if (isExpanded) {
     const groupedDoctors = groupDoctorsByType(doctors);
 
-    return (
-      <>
-        <td
-          ref={cellRef}
-          className="p-0 border relative"
-          style={{ minWidth: '100px', height: slot === 'Soir' ? '40px' : '60px' }}
+    return ReactDOM.createPortal(
+      <div className="fixed inset-0 bg-black bg-opacity-10 flex items-center justify-center z-50" onClick={() => setExpandedCell(null)}>
+        <div
+          ref={menuRef}
+          className="bg-white border-2 border-gray-300 rounded-lg shadow-2xl"
+          style={{ 
+            minWidth: '750px',
+            maxWidth: '90vw'
+          }}
+          onClick={(e) => {
+            console.log('Menu div clicked');
+            e.stopPropagation();
+          }}
         >
-          {/* Cellule normale pendant que le menu est ouvert */}
-        </td>
-        {/* Menu en overlay centré comme DoctorMenu */}
-        <div className="fixed inset-0 bg-black bg-opacity-10 flex items-center justify-center z-50" onClick={() => setExpandedCell(null)}>
-          <div
-            ref={menuRef}
-            className="bg-white border-2 border-gray-300 rounded-lg shadow-2xl"
-            style={{ 
-              minWidth: '750px',
-              maxWidth: '90vw'
-            }}
-            onClick={(e) => {
-              console.log('Menu div clicked');
-              e.stopPropagation();
-            }}
-          >
-            {/* En-tête du menu */}
-            <div className="bg-gray-100 px-4 py-2 rounded-t-lg border-b">
-              <h3 className="font-semibold text-gray-800 text-center">
-                Assignation des médecins - {machine.name} ({day} {slot})
-              </h3>
-            </div>
+          <div className="bg-gray-100 px-4 py-2 rounded-t-lg border-b">
+            <h3 className="font-semibold text-gray-800 text-center">
+              Assignation des médecins - {machine.name} ({day} {slot})
+            </h3>
+          </div>
 
-            {/* Contenu principal en 3 colonnes */}
-            <div className="flex gap-4 p-4">
-              {/* Colonne Associés */}
-              <div className="flex-1 min-w-0">
-                <div className="font-medium text-sm mb-3 text-blue-700 text-center underline">
-                  Associés
-                </div>
-                <div className="space-y-2">
-                  {groupedDoctors['associé']?.map(doctor => {
-                    const assignedDoctor = assignedDoctors.find((d: DoctorAssignment) => d.doctorId === doctor.id);
-                    const isAssigned = assignedDoctor !== undefined;
-                    const shareCount = assignedDoctor?.share || 0;
-                    const canAddMoreShares = isAssigned && uniqueDoctorCount > 1 && canAddMore;
-                    const isOnLeave = conges[day]?.includes(doctor.initials);
+          <div className="flex gap-4 p-4">
+            <div className="flex-1 min-w-0">
+              <div className="font-medium text-sm mb-3 text-blue-700 text-center underline">
+                Associés
+              </div>
+              <div className="space-y-2">
+                {groupedDoctors['associé']?.map(doctor => {
+                  const assignedDoctor = assignedDoctors.find((d: DoctorAssignment) => d.doctorId === doctor.id);
+                  const isAssigned = assignedDoctor !== undefined;
+                  const shareCount = assignedDoctor?.share || 0;
+                  const canAddMoreShares = isAssigned && uniqueDoctorCount > 1 && canAddMore;
+                  const isOnLeave = conges[day]?.includes(doctor.initials);
 
-                    console.log('Associé button state:', {
-                      doctorId: doctor.id,
-                      initials: doctor.initials,
-                      isAssigned,
-                      shareCount,
-                      canAddMore,
-                      canAddMoreShares,
-                      totalShares,
-                      uniqueDoctorCount,
-                      isOnLeave
-                    });
-
-                    return (
-                      <div key={doctor.id} className="flex items-center gap-1">
-                        {isAssigned && (
-                          <button
-                            className="px-2 py-1 text-sm rounded-l bg-red-100 hover:bg-red-200 text-red-700 font-medium"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              console.log('Decreasing share for:', doctor.id);
-                              decreaseDoctorShare({ 
-                                day, 
-                                slot, 
-                                machineId: machine.id, 
-                                doctorId: doctor.id 
-                              });
-                            }}
-                          >
-                            −
-                          </button>
-                        )}
+                  return (
+                    <div key={doctor.id} className="flex items-center gap-1">
+                      {isAssigned && (
                         <button
-                          className={`px-3 py-2 text-sm rounded-r flex-1 flex items-center justify-center font-medium ${
-                            isOnLeave
-                              ? 'bg-gray-300 opacity-50 cursor-not-allowed text-gray-600'
-                              : isAssigned 
-                                ? canAddMoreShares
-                                  ? 'border-2 border-gray-400 hover:bg-gray-100 text-gray-800'
-                                  : 'border-2 border-gray-400 opacity-50 cursor-not-allowed text-gray-600' 
-                                : canAddMore 
-                                  ? 'bg-gray-50 hover:bg-gray-100 border border-gray-300 text-gray-700' 
-                                  : 'opacity-50 cursor-not-allowed text-gray-400 bg-gray-100'
-                          }`}
-                          style={{ 
-                            backgroundColor: isAssigned && !isOnLeave ? doctor.color : undefined,
-                            color: isAssigned && !isOnLeave ? '#000' : undefined
-                          }}
+                          className="px-2 py-1 text-sm rounded-l bg-red-100 hover:bg-red-200 text-red-700 font-medium"
                           onClick={(e) => {
                             e.stopPropagation();
-                            console.log('Assigning doctor:', { doctorId: doctor.id, day, slot, machineId: machine.id });
-                            if (!isOnLeave && (canAddMore || (isAssigned && canAddMoreShares))) {
-                              handleAssignDoctor(day, slot, machine.id, doctor.id);
-                            } else {
-                              console.log('Cannot assign doctor:', { isOnLeave, canAddMore, canAddMoreShares });
-                            }
+                            decreaseDoctorShare({ 
+                              day, 
+                              slot, 
+                              machineId: machine.id, 
+                              doctorId: doctor.id 
+                            });
                           }}
-                          disabled={isOnLeave || !(canAddMore || (isAssigned && canAddMoreShares))}
-                          title={isOnLeave ? 'En congés' : ''}
                         >
-                          {doctor.initials}
-                          {isAssigned && shareCount > 1 && (
-                            <span className="ml-1 text-xs font-bold">×{shareCount}</span>
-                          )}
+                          −
                         </button>
-                      </div>
-                    );
-                  })}
-                </div>
-              </div>
-
-              {/* Colonne Remplaçants */}
-              <div className="flex-1 min-w-0">
-                <div className="font-medium text-sm mb-3 text-green-700 text-center underline">
-                  Remplaçants
-                </div>
-                <div className="space-y-2">
-                  {groupedDoctors['remplaçant']?.map(doctor => {
-                    const assignedDoctor = assignedDoctors.find((d: DoctorAssignment) => d.doctorId === doctor.id);
-                    const isAssigned = assignedDoctor !== undefined;
-                    const shareCount = assignedDoctor?.share || 0;
-                    const canAddMoreShares = isAssigned && uniqueDoctorCount > 1 && canAddMore;
-                    const isOnLeave = conges[day]?.includes(doctor.initials);
-
-                    console.log('Remplaçant button state:', {
-                      doctorId: doctor.id,
-                      initials: doctor.initials,
-                      isAssigned,
-                      shareCount,
-                      canAddMore,
-                      canAddMoreShares,
-                      totalShares,
-                      uniqueDoctorCount,
-                      isOnLeave
-                    });
-
-                    return (
-                      <div key={doctor.id} className="flex items-center gap-1">
-                        {isAssigned && (
-                          <button
-                            className="px-2 py-1 text-sm rounded-l bg-red-100 hover:bg-red-200 text-red-700 font-medium"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              console.log('Decreasing share for:', doctor.id);
-                              decreaseDoctorShare({ 
-                                day, 
-                                slot, 
-                                machineId: machine.id, 
-                                doctorId: doctor.id 
-                              });
-                            }}
-                          >
-                            −
-                          </button>
+                      )}
+                      <button
+                        className={`px-3 py-2 text-sm rounded-r flex-1 flex items-center justify-center font-medium ${
+                          isOnLeave
+                            ? 'bg-gray-300 opacity-50 cursor-not-allowed text-gray-600'
+                            : isAssigned 
+                              ? canAddMoreShares
+                                ? 'border-2 border-gray-400 hover:bg-gray-100 text-gray-800'
+                                : 'border-2 border-gray-400 opacity-50 cursor-not-allowed text-gray-600' 
+                              : canAddMore 
+                                ? 'bg-gray-50 hover:bg-gray-100 border border-gray-300 text-gray-700' 
+                                : 'opacity-50 cursor-not-allowed text-gray-400 bg-gray-100'
+                        }`}
+                        style={{ 
+                          backgroundColor: isAssigned && !isOnLeave ? doctor.color : undefined,
+                          color: isAssigned && !isOnLeave ? '#000' : undefined
+                        }}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          if (!isOnLeave && (canAddMore || (isAssigned && canAddMoreShares))) {
+                            handleAssignDoctor(day, slot, machine.id, doctor.id);
+                          }
+                        }}
+                        disabled={isOnLeave || !(canAddMore || (isAssigned && canAddMoreShares))}
+                        title={isOnLeave ? 'En congés' : ''}
+                      >
+                        {doctor.initials}
+                        {isAssigned && shareCount > 1 && (
+                          <span className="ml-1 text-xs font-bold">×{shareCount}</span>
                         )}
-                        <button
-                          className={`px-3 py-2 text-sm rounded-r flex-1 flex items-center justify-center font-medium ${
-                            isOnLeave
-                              ? 'bg-gray-300 opacity-50 cursor-not-allowed text-gray-600'
-                              : isAssigned 
-                                ? canAddMoreShares
-                                  ? 'border-2 border-gray-400 hover:bg-gray-100 text-gray-800'
-                                  : 'border-2 border-gray-400 opacity-50 cursor-not-allowed text-gray-600' 
-                                : canAddMore 
-                                  ? 'bg-gray-50 hover:bg-gray-100 border border-gray-300 text-gray-700' 
-                                  : 'opacity-50 cursor-not-allowed text-gray-400 bg-gray-100'
-                          }`}
-                          style={{ 
-                            backgroundColor: isAssigned && !isOnLeave ? doctor.color : undefined,
-                            color: isAssigned && !isOnLeave ? '#000' : undefined
-                          }}
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            console.log('Assigning doctor:', { doctorId: doctor.id, day, slot, machineId: machine.id });
-                            if (!isOnLeave && (canAddMore || (isAssigned && canAddMoreShares))) {
-                              handleAssignDoctor(day, slot, machine.id, doctor.id);
-                            } else {
-                              console.log('Cannot assign doctor:', { isOnLeave, canAddMore, canAddMoreShares });
-                            }
-                          }}
-                          disabled={isOnLeave || !(canAddMore || (isAssigned && canAddMoreShares))}
-                          title={isOnLeave ? 'En congés' : ''}
-                        >
-                          {doctor.initials}
-                          {isAssigned && shareCount > 1 && (
-                            <span className="ml-1 text-xs font-bold">×{shareCount}</span>
-                          )}
-                        </button>
-                      </div>
-                    );
-                  })}
-                </div>
-              </div>
-
-              {/* Colonne Autre */}
-              <div className="flex-1 min-w-0">
-                <div className="font-medium text-sm mb-3 text-purple-700 text-center underline">
-                  Autre
-                </div>
-                <div className="space-y-2">
-                  {/* Maintenance */}
-                  <div className="flex items-center gap-1">
-                    {assignedDoctors.some((d: DoctorAssignment) => d.maintenance) && (
-                      <button
-                        className="px-2 py-1 text-sm rounded-l bg-red-100 hover:bg-red-200 text-red-700 font-medium"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          console.log('Decreasing share for maintenance');
-                          decreaseDoctorShare({ 
-                            day, 
-                            slot, 
-                            machineId: machine.id, 
-                            doctorId: null,
-                            isMaintenance: true
-                          });
-                        }}
-                      >
-                        −
                       </button>
-                    )}
-                    <button
-                      className={`px-3 py-2 text-sm rounded-r flex-1 flex items-center justify-center font-medium ${
-                        assignedDoctors.some((d: DoctorAssignment) => d.maintenance)
-                          ? canAddMore && uniqueDoctorCount > 1
-                            ? 'border-2 border-gray-400 hover:bg-gray-100 text-gray-800'
-                            : 'border-2 border-gray-400 opacity-50 cursor-not-allowed text-gray-600'
-                          : canAddMore 
-                            ? 'bg-gray-50 hover:bg-gray-100 border border-gray-300 text-gray-700' 
-                            : 'opacity-50 cursor-not-allowed text-gray-400 bg-gray-100'
-                      }`}
-                      style={{ backgroundColor: assignedDoctors.some((d: DoctorAssignment) => d.maintenance) ? '#d1d5db' : undefined }}
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        console.log('Assigning maintenance:', { day, slot, machineId: machine.id });
-                        if (canAddMore || (assignedDoctors.some((d: DoctorAssignment) => d.maintenance) && uniqueDoctorCount > 1)) {
-                          handleAssignDoctor(day, slot, machine.id, null, true, false);
-                        }
-                      }}
-                      disabled={!(canAddMore || (assignedDoctors.some((d: DoctorAssignment) => d.maintenance) && uniqueDoctorCount > 1))}
-                    >
-                      MAINT
-                      {assignedDoctors.find((d: DoctorAssignment) => d.maintenance)?.share > 1 && (
-                        <span className="ml-1 text-xs font-bold">×{assignedDoctors.find((d: DoctorAssignment) => d.maintenance)?.share}</span>
-                      )}
-                    </button>
-                  </div>
-
-                  {/* Sans Médecin */}
-                  <div className="flex items-center gap-1">
-                    {assignedDoctors.some((d: DoctorAssignment) => d.noDoctor) && (
-                      <button
-                        className="px-2 py-1 text-sm rounded-l bg-red-100 hover:bg-red-200 text-red-700 font-medium"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          console.log('Decreasing share for no doctor');
-                          decreaseDoctorShare({ 
-                            day, 
-                            slot, 
-                            machineId: machine.id, 
-                            doctorId: null,
-                            isNoDoctor: true
-                          });
-                        }}
-                      >
-                        −
-                      </button>
-                    )}
-                    <button
-                      className={`px-3 py-2 text-sm rounded-r flex-1 flex items-center justify-center font-medium ${
-                        assignedDoctors.some((d: DoctorAssignment) => d.noDoctor)
-                          ? canAddMore && uniqueDoctorCount > 1
-                            ? 'border-2 border-gray-400 hover:bg-gray-100 text-gray-800'
-                            : 'border-2 border-gray-400 opacity-50 cursor-not-allowed text-gray-600'
-                          : canAddMore 
-                            ? 'bg-gray-50 hover:bg-gray-100 border border-gray-300 text-gray-700' 
-                            : 'opacity-50 cursor-not-allowed text-gray-400 bg-gray-100'
-                      }`}
-                      style={{ backgroundColor: assignedDoctors.some((d: DoctorAssignment) => d.noDoctor) ? '#d1d5db' : undefined }}
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        console.log('Assigning no doctor:', { day, slot, machineId: machine.id });
-                        if (canAddMore || (assignedDoctors.some((d: DoctorAssignment) => d.noDoctor) && uniqueDoctorCount > 1)) {
-                          handleAssignDoctor(day, slot, machine.id, null, false, true);
-                        }
-                      }}
-                      disabled={!(canAddMore || (assignedDoctors.some((d: DoctorAssignment) => d.noDoctor) && uniqueDoctorCount > 1))}
-                    >
-                      Sans Médecin
-                      {assignedDoctors.find((d: DoctorAssignment) => d.noDoctor)?.share > 1 && (
-                        <span className="ml-1 text-xs font-bold">×{assignedDoctors.find((d: DoctorAssignment) => d.noDoctor)?.share}</span>
-                      )}
-                    </button>
-                  </div>
-                </div>
+                    </div>
+                  );
+                })}
               </div>
             </div>
 
-            {/* Pied du menu avec informations et boutons */}
-            <div className="border-t bg-gray-50 px-4 py-3 rounded-b-lg">
-              <div className="flex items-center justify-between">
-                <div className="text-sm text-gray-600">
-                  {uniqueDoctorCount === 1
-                    ? "Un seul médecin assigné (max 1 part)"
-                    : totalShares < 4 
-                      ? `Total: ${totalShares}/4 parts` 
-                      : "Maximum 4 parts par case atteint"}
-                </div>
-                <div className="flex gap-3">
-                  <button 
-                    className="px-4 py-2 text-sm bg-gray-200 text-gray-700 rounded hover:bg-gray-300 font-medium"
+            <div className="flex-1 min-w-0">
+              <div className="font-medium text-sm mb-3 text-green-700 text-center underline">
+                Remplaçants
+              </div>
+              <div className="space-y-2">
+                {groupedDoctors['remplaçant']?.map(doctor => {
+                  const assignedDoctor = assignedDoctors.find((d: DoctorAssignment) => d.doctorId === doctor.id);
+                  const isAssigned = assignedDoctor !== undefined;
+                  const shareCount = assignedDoctor?.share || 0;
+                  const canAddMoreShares = isAssigned && uniqueDoctorCount > 1 && canAddMore;
+                  const isOnLeave = conges[day]?.includes(doctor.initials);
+
+                  return (
+                    <div key={doctor.id} className="flex items-center gap-1">
+                      {isAssigned && (
+                        <button
+                          className="px-2 py-1 text-sm rounded-l bg-red-100 hover:bg-red-200 text-red-700 font-medium"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            decreaseDoctorShare({ 
+                              day, 
+                              slot, 
+                              machineId: machine.id, 
+                              doctorId: doctor.id 
+                            });
+                          }}
+                        >
+                          −
+                        </button>
+                      )}
+                      <button
+                        className={`px-3 py-2 text-sm rounded-r flex-1 flex items-center justify-center font-medium ${
+                          isOnLeave
+                            ? 'bg-gray-300 opacity-50 cursor-not-allowed text-gray-600'
+                            : isAssigned 
+                              ? canAddMoreShares
+                                ? 'border-2 border-gray-400 hover:bg-gray-100 text-gray-800'
+                                : 'border-2 border-gray-400 opacity-50 cursor-not-allowed text-gray-600' 
+                              : canAddMore 
+                                ? 'bg-gray-50 hover:bg-gray-100 border border-gray-300 text-gray-700' 
+                                : 'opacity-50 cursor-not-allowed text-gray-400 bg-gray-100'
+                        }`}
+                        style={{ 
+                          backgroundColor: isAssigned && !isOnLeave ? doctor.color : undefined,
+                          color: isAssigned && !isOnLeave ? '#000' : undefined
+                        }}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          if (!isOnLeave && (canAddMore || (isAssigned && canAddMoreShares))) {
+                            handleAssignDoctor(day, slot, machine.id, doctor.id);
+                          }
+                        }}
+                        disabled={isOnLeave || !(canAddMore || (isAssigned && canAddMoreShares))}
+                        title={isOnLeave ? 'En congés' : ''}
+                      >
+                        {doctor.initials}
+                        {isAssigned && shareCount > 1 && (
+                          <span className="ml-1 text-xs font-bold">×{shareCount}</span>
+                        )}
+                      </button>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+
+            <div className="flex-1 min-w-0">
+              <div className="font-medium text-sm mb-3 text-purple-700 text-center underline">
+                Autre
+              </div>
+              <div className="space-y-2">
+                <div className="flex items-center gap-1">
+                  {assignedDoctors.some((d: DoctorAssignment) => d.maintenance) && (
+                    <button
+                      className="px-2 py-1 text-sm rounded-l bg-red-100 hover:bg-red-200 text-red-700 font-medium"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        decreaseDoctorShare({ 
+                          day, 
+                          slot, 
+                          machineId: machine.id, 
+                          doctorId: null,
+                          isMaintenance: true
+                        });
+                      }}
+                    >
+                      −
+                    </button>
+                  )}
+                  <button
+                    className={`px-3 py-2 text-sm rounded-r flex-1 flex items-center justify-center font-medium ${
+                      assignedDoctors.some((d: DoctorAssignment) => d.maintenance)
+                        ? canAddMore && uniqueDoctorCount > 1
+                          ? 'border-2 border-gray-400 hover:bg-gray-100 text-gray-800'
+                          : 'border-2 border-gray-400 opacity-50 cursor-not-allowed text-gray-600'
+                        : canAddMore 
+                          ? 'bg-gray-50 hover:bg-gray-100 border border-gray-300 text-gray-700' 
+                          : 'opacity-50 cursor-not-allowed text-gray-400 bg-gray-100'
+                    }`}
+                    style={{ backgroundColor: assignedDoctors.some((d: DoctorAssignment) => d.maintenance) ? '#d1d5db' : undefined }}
                     onClick={(e) => {
                       e.stopPropagation();
-                      setExpandedCell(null);
+                      if (canAddMore || (assignedDoctors.some((d: DoctorAssignment) => d.maintenance) && uniqueDoctorCount > 1)) {
+                        handleAssignDoctor(day, slot, machine.id, null, true, false);
+                      }
                     }}
+                    disabled={!(canAddMore || (assignedDoctors.some((d: DoctorAssignment) => d.maintenance) && uniqueDoctorCount > 1))}
                   >
-                    Fermer
+                    MAINT
+                    {assignedDoctors.find((d: DoctorAssignment) => d.maintenance)?.share > 1 && (
+                      <span className="ml-1 text-xs font-bold">×{assignedDoctors.find((d: DoctorAssignment) => d.maintenance)?.share}</span>
+                    )}
                   </button>
-                  <button 
-                    className="px-4 py-2 text-sm bg-blue-600 text-white rounded hover:bg-blue-700 font-medium"
+                </div>
+
+                <div className="flex items-center gap-1">
+                  {assignedDoctors.some((d: DoctorAssignment) => d.noDoctor) && (
+                    <button
+                      className="px-2 py-1 text-sm rounded-l bg-red-100 hover:bg-red-200 text-red-700 font-medium"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        decreaseDoctorShare({ 
+                          day, 
+                          slot, 
+                          machineId: machine.id, 
+                          doctorId: null,
+                          isNoDoctor: true
+                        });
+                      }}
+                    >
+                      −
+                    </button>
+                  )}
+                  <button
+                    className={`px-3 py-2 text-sm rounded-r flex-1 flex items-center justify-center font-medium ${
+                      assignedDoctors.some((d: DoctorAssignment) => d.noDoctor)
+                        ? canAddMore && uniqueDoctorCount > 1
+                          ? 'border-2 border-gray-400 hover:bg-gray-100 text-gray-800'
+                          : 'border-2 border-gray-400 opacity-50 cursor-not-allowed text-gray-600'
+                        : canAddMore 
+                          ? 'bg-gray-50 hover:bg-gray-100 border border-gray-300 text-gray-700' 
+                          : 'opacity-50 cursor-not-allowed text-gray-400 bg-gray-100'
+                    }`}
+                    style={{ backgroundColor: assignedDoctors.some((d: DoctorAssignment) => d.noDoctor) ? '#d1d5db' : undefined }}
                     onClick={(e) => {
                       e.stopPropagation();
-                      handleValidate();
+                      if (canAddMore || (assignedDoctors.some((d: DoctorAssignment) => d.noDoctor) && uniqueDoctorCount > 1)) {
+                        handleAssignDoctor(day, slot, machine.id, null, false, true);
+                      }
                     }}
+                    disabled={!(canAddMore || (assignedDoctors.some((d: DoctorAssignment) => d.noDoctor) && uniqueDoctorCount > 1))}
                   >
-                    Valider
+                    Sans Médecin
+                    {assignedDoctors.find((d: DoctorAssignment) => d.noDoctor)?.share > 1 && (
+                      <span className="ml-1 text-xs font-bold">×{assignedDoctors.find((d: DoctorAssignment) => d.noDoctor)?.share}</span>
+                    )}
                   </button>
                 </div>
               </div>
             </div>
           </div>
+
+          <div className="border-t bg-gray-50 px-4 py-3 rounded-b-lg">
+            <div className="flex items-center justify-between">
+              <div className="text-sm text-gray-600">
+                {uniqueDoctorCount === 1
+                  ? "Un seul médecin assigné (max 1 part)"
+                  : totalShares < 4 
+                    ? `Total: ${totalShares}/4 parts` 
+                    : "Maximum 4 parts par case atteint"}
+              </div>
+              <div className="flex gap-3">
+                <button 
+                  className="px-4 py-2 text-sm bg-gray-200 text-gray-700 rounded hover:bg-gray-300 font-medium"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setExpandedCell(null);
+                  }}
+                >
+                  Fermer
+                </button>
+                <button 
+                  className="px-4 py-2 text-sm bg-blue-600 text-white rounded hover:bg-blue-700 font-medium"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    handleValidate();
+                  }}
+                >
+                  Valider
+                </button>
+              </div>
+            </div>
+          </div>
         </div>
-      </>
+      </div>,
+      document.body
     );
   }
 
@@ -602,6 +547,7 @@ export const AssignmentCell: React.FC<AssignmentCellProps> = ({
       ref={cellRef}
       className="p-0 border relative"
       style={{ minWidth: '100px', height: slot === 'Soir' ? '40px' : '60px' }}
+      onClick={handleAddDoctor}
     >
       <div className="relative w-full h-full">
         <div className="absolute inset-0 flex flex-row">
