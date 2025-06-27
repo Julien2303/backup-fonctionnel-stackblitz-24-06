@@ -49,7 +49,7 @@ export const AssignmentCell: React.FC<AssignmentCellProps> = ({
                     expandedCell?.machineId === machine.id;
 
   const menuRef = useRef<HTMLDivElement>(null);
-  const cellRef = useRef<HTMLTableCellElement>(null);
+  const cellRef = useRef<HTMLDivElement>(null); // Changé de HTMLTableCellElement à HTMLDivElement
   const [exceptionHoursMap, setExceptionHoursMap] = useState<Record<string, number | null>>({});
 
   const updateExceptionHours = (doctorId: string, hours: number | null) => {
@@ -416,29 +416,29 @@ export const AssignmentCell: React.FC<AssignmentCellProps> = ({
                     </button>
                   )}
                   <button
-                    className={`px-3 py-2 text-sm rounded-r flex-1 flex items-center justify-center font-medium ${
-                      assignedDoctors.some((d: DoctorAssignment) => d.maintenance)
-                        ? canAddMore && uniqueDoctorCount > 1
-                          ? 'border-2 border-gray-400 hover:bg-gray-100 text-gray-800'
-                          : 'border-2 border-gray-400 opacity-50 cursor-not-allowed text-gray-600'
-                        : canAddMore 
-                          ? 'bg-gray-50 hover:bg-gray-100 border border-gray-300 text-gray-700' 
-                          : 'opacity-50 cursor-not-allowed text-gray-400 bg-gray-100'
-                    }`}
-                    style={{ backgroundColor: assignedDoctors.some((d: DoctorAssignment) => d.maintenance) ? '#d1d5db' : undefined }}
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      if (canAddMore || (assignedDoctors.some((d: DoctorAssignment) => d.maintenance) && uniqueDoctorCount > 1)) {
-                        handleAssignDoctor(day, slot, machine.id, null, true, false);
-                      }
-                    }}
-                    disabled={!(canAddMore || (assignedDoctors.some((d: DoctorAssignment) => d.maintenance) && uniqueDoctorCount > 1))}
-                  >
-                    MAINT
-                    {assignedDoctors.find((d: DoctorAssignment) => d.maintenance)?.share > 1 && (
-                      <span className="ml-1 text-xs font-bold">×{assignedDoctors.find((d: DoctorAssignment) => d.maintenance)?.share}</span>
-                    )}
-                  </button>
+  className={`px-3 py-2 text-sm rounded-r flex-1 flex items-center justify-center font-medium ${
+    assignedDoctors.some((d: DoctorAssignment) => d.maintenance)
+      ? canAddMore && uniqueDoctorCount > 1
+        ? 'border-2 border-gray-400 hover:bg-gray-100 text-gray-800'
+        : 'border-2 border-gray-400 opacity-50 cursor-not-allowed text-gray-600'
+      : canAddMore 
+        ? 'bg-gray-50 hover:bg-gray-100 border border-gray-300 text-gray-700' 
+        : 'opacity-50 cursor-not-allowed text-gray-400 bg-gray-100'
+  }`}
+  style={{ backgroundColor: assignedDoctors.some((d: DoctorAssignment) => d.maintenance) ? '#d1d5db' : undefined }}
+  onClick={(e) => {
+    e.stopPropagation();
+    if (canAddMore || (assignedDoctors.some((d: DoctorAssignment) => d.maintenance) && uniqueDoctorCount > 1)) {
+      handleAssignDoctor(day, slot, machine.id, null, true, false);
+    }
+  }}
+  disabled={!(canAddMore || (assignedDoctors.some((d: DoctorAssignment) => d.maintenance) && uniqueDoctorCount > 1))}
+>
+  MAINT
+  {assignedDoctors.find((d: DoctorAssignment) => d.maintenance)?.share > 1 && (
+    <span className="ml-1 text-xs font-bold">×{assignedDoctors.find((d: DoctorAssignment) => d.maintenance)?.share}</span>
+  )}
+</button>
                 </div>
 
                 <div className="flex items-center gap-1">
@@ -459,30 +459,30 @@ export const AssignmentCell: React.FC<AssignmentCellProps> = ({
                       −
                     </button>
                   )}
-                  <button
-                    className={`px-3 py-2 text-sm rounded-r flex-1 flex items-center justify-center font-medium ${
-                      assignedDoctors.some((d: DoctorAssignment) => d.noDoctor)
-                        ? canAddMore && uniqueDoctorCount > 1
-                          ? 'border-2 border-gray-400 hover:bg-gray-100 text-gray-800'
-                          : 'border-2 border-gray-400 opacity-50 cursor-not-allowed text-gray-600'
-                        : canAddMore 
-                          ? 'bg-gray-50 hover:bg-gray-100 border border-gray-300 text-gray-700' 
-                          : 'opacity-50 cursor-not-allowed text-gray-400 bg-gray-100'
-                    }`}
-                    style={{ backgroundColor: assignedDoctors.some((d: DoctorAssignment) => d.noDoctor) ? '#d1d5db' : undefined }}
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      if (canAddMore || (assignedDoctors.some((d: DoctorAssignment) => d.noDoctor) && uniqueDoctorCount > 1)) {
-                        handleAssignDoctor(day, slot, machine.id, null, false, true);
-                      }
-                    }}
-                    disabled={!(canAddMore || (assignedDoctors.some((d: DoctorAssignment) => d.noDoctor) && uniqueDoctorCount > 1))}
-                  >
-                    Sans Médecin
-                    {assignedDoctors.find((d: DoctorAssignment) => d.noDoctor)?.share > 1 && (
-                      <span className="ml-1 text-xs font-bold">×{assignedDoctors.find((d: DoctorAssignment) => d.noDoctor)?.share}</span>
-                    )}
-                  </button>
+                 <button
+  className={`px-3 py-2 text-sm rounded-r flex-1 flex items-center justify-center font-medium ${
+    assignedDoctors.some((d: DoctorAssignment) => d.noDoctor)
+      ? canAddMore && uniqueDoctorCount > 1
+        ? 'border-2 border-gray-400 hover:bg-gray-100 text-gray-800'
+        : 'border-2 border-gray-400 opacity-50 cursor-not-allowed text-gray-600'
+      : canAddMore 
+        ? 'bg-gray-50 hover:bg-gray-100 border border-gray-300 text-gray-700' 
+        : 'opacity-50 cursor-not-allowed text-gray-400 bg-gray-100'
+  }`}
+  style={{ backgroundColor: assignedDoctors.some((d: DoctorAssignment) => d.noDoctor) ? '#d1d5db' : undefined }}
+  onClick={(e) => {
+    e.stopPropagation();
+    if (canAddMore || (assignedDoctors.some((d: DoctorAssignment) => d.noDoctor) && uniqueDoctorCount > 1)) {
+      handleAssignDoctor(day, slot, machine.id, null, false, true);
+    }
+  }}
+  disabled={!(canAddMore || (assignedDoctors.some((d: DoctorAssignment) => d.noDoctor) && uniqueDoctorCount > 1))}
+>
+  Sans Médecin
+  {assignedDoctors.find((d: DoctorAssignment) => d.noDoctor)?.share > 1 && (
+    <span className="ml-1 text-xs font-bold">×{assignedDoctors.find((d: DoctorAssignment) => d.noDoctor)?.share}</span>
+  )}
+</button>
                 </div>
               </div>
             </div>
@@ -527,7 +527,7 @@ export const AssignmentCell: React.FC<AssignmentCellProps> = ({
 
   if (assignedDoctors.length === 0) {
     return (
-      <td
+      <div
         ref={cellRef}
         className="p-0 border relative"
         style={{ minWidth: '100px', height: slot === 'Soir' ? '40px' : '60px' }}
@@ -538,12 +538,12 @@ export const AssignmentCell: React.FC<AssignmentCellProps> = ({
         >
           +
         </button>
-      </td>
+      </div>
     );
   }
 
   return (
-    <td
+    <div
       ref={cellRef}
       className="p-0 border relative"
       style={{ minWidth: '100px', height: slot === 'Soir' ? '40px' : '60px' }}
@@ -567,6 +567,6 @@ export const AssignmentCell: React.FC<AssignmentCellProps> = ({
           </button>
         )}
       </div>
-    </td>
+    </div>
   );
 };
