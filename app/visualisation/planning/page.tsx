@@ -30,7 +30,7 @@ const StaticAssignmentCell: React.FC<{
     )
   );
   const uniqueDoctorCount = uniqueDoctorIds.size;
-  
+
   const renderDoctorInitials = (doctorAssignment: any, index: number) => {
     const widthPercentage = totalShares > 0 ? (doctorAssignment.share / totalShares) * 100 : 100;
 
@@ -100,7 +100,7 @@ const StaticAssignmentCell: React.FC<{
 
     return (
       <div
-        key={`${doctor.id}-${machine.id}-${day}-${slot}-${index}`}
+        key={`doctor-${doctor.id}-${machine.id}-${day}-${slot}-${index}`}
         className={`flex items-center justify-center h-full ${
           index < assignedDoctors.length - 1 ? 'border-r border-gray-200' : ''
         }`}
@@ -178,7 +178,7 @@ export default function VisualizationPlanningPage() {
         const { week: todayWeek, year: todayYear } = getWeekNumber(today);
         const { week: closestWeek, year: closestYear } = findClosestValidatedWeek(todayWeek, todayYear, validated);
         const closestDate = getDateOfWeek(closestWeek, closestYear);
-        
+
         setCurrentDate(closestDate);
         setSelectedWeek(closestWeek);
         setSelectedYear(closestYear);
@@ -256,7 +256,7 @@ export default function VisualizationPlanningPage() {
       if (b === 'ST EX') return 1;
       return a.localeCompare(b);
     });
-    
+
     const orderedMachines = sortedSites.flatMap((site) =>
       machines.filter((m) => m.site === site)
     );
@@ -309,7 +309,7 @@ export default function VisualizationPlanningPage() {
             </th>
             {sortedSites.map((site, siteIndex) => (
               <th
-                key={`site-header-${site}`}
+                key={`site-header-${site}-${siteIndex}`}
                 colSpan={machines.filter((m) => m.site === site).length}
                 className={`p-1 text-center border-b border-gray-400 text-sm bg-gray-100 ${
                   siteSeparationIndices.includes(siteIndex) ? 'border-r-2 border-gray-600' : 'border-r border-gray-400'
@@ -331,7 +331,7 @@ export default function VisualizationPlanningPage() {
           <tr className="bg-gray-100">
             {orderedMachines.map((machine, machineIndex) => (
               <th
-                key={`machine-header-${machine.id}`}
+                key={`machine-header-${machine.id}-${machineIndex}`}
                 className={`p-1 text-center border-b-2 border-gray-600 text-sm ${
                   separationIndices.includes(machineIndex) ? 'border-r-2 border-gray-600' : 'border-r border-gray-400'
                 } ${fixedColumnWidth}`}
@@ -357,12 +357,12 @@ export default function VisualizationPlanningPage() {
             const dayDate = formatFrenchDate(day);
             const dayKey = formatDateKey(day);
             const slotsToShow = dayIndex === 5 ? ['Matin'] : ['Matin', 'Après-midi', 'Soir'];
-            
+
             return (
-              <React.Fragment key={`day-fragment-${dayKey}`}>
+              <React.Fragment key={`planning-day-${dayKey}-${dayIndex}`}>
                 {slotsToShow.map((slot, slotIndex) => (
                   <tr
-                    key={`day-slot-row-${dayKey}-${slot.toLowerCase()}`}
+                    key={`planning-row-${dayKey}-${slot}-${slotIndex}`}
                     className={`border-t ${
                       dayIndex !== 0 && slotIndex === 0 ? 'border-t-2 border-gray-600' : 'border-gray-400'
                     } ${dayIndex === 0 && slotIndex === 0 ? 'border-t-2' : ''}`}
@@ -391,7 +391,7 @@ export default function VisualizationPlanningPage() {
                     ) : null}
                     {orderedMachines.map((machine, machineIndex) => (
                       <td
-                        key={`assignment-cell-${dayKey}-${slot.toLowerCase()}-${machine.id}`}
+                        key={`assignment-cell-${dayKey}-${slot}-${machine.id}-${machineIndex}`}
                         className={`p-0 border-t border-b ${
                           separationIndices.includes(machineIndex) ? 'border-r-2 border-gray-600' : 'border-r border-gray-400'
                         } ${fixedColumnWidth}`}
@@ -410,7 +410,7 @@ export default function VisualizationPlanningPage() {
                   </tr>
                 ))}
                 <GuardsRow
-                  key={`guards-row-${dayKey}`}
+                  key={`guards-row-${dayKey}-${dayIndex}`}
                   day={day}
                   machines={machines}
                   selectedMachines={machines.map((m) => m.id)}
@@ -430,7 +430,7 @@ export default function VisualizationPlanningPage() {
   if (authLoading) {
     return <div className="p-5">Chargement...</div>;
   }
-  
+
   if (authError) {
     return <div className="p-5 text-red-500">Erreur: {authError}</div>;
   }
