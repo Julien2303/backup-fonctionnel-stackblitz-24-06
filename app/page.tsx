@@ -12,8 +12,6 @@ import { getGardesForYear, getCongesForWeek, getValidatedWeeks } from '@/lib/sup
 import { Doctor, Machine, Garde } from './accueil/types';
 import { GuardsRow } from './accueil/GuardsRow';
 
-
-
 // Composant pour afficher une cellule d'assignation statique
 const StaticAssignmentCell: React.FC<{
   day: string;
@@ -42,7 +40,7 @@ const StaticAssignmentCell: React.FC<{
     if (doctorAssignment.maintenance) {
       return (
         <div
-          key={`MAINT-${index}`}
+          key={`MAINT-${machine.id}-${day}-${slot}-${index}`}
           className={`flex items-center justify-center h-full ${
             index < assignedDoctors.length - 1 ? 'border-r border-gray-200' : ''
           }`}
@@ -62,7 +60,7 @@ const StaticAssignmentCell: React.FC<{
     if (doctorAssignment.noDoctor) {
       return (
         <div
-          key={`NO_DOCTOR-${index}`}
+          key={`NO_DOCTOR-${machine.id}-${day}-${slot}-${index}`}
           className={`flex items-center justify-center h-full ${
             index < assignedDoctors.length - 1 ? 'border-r border-gray-200' : ''
           }`}
@@ -108,7 +106,7 @@ const StaticAssignmentCell: React.FC<{
 
     return (
       <div
-        key={doctorAssignment.doctorId || index}
+        key={`doctor-${doctor.id}-${machine.id}-${day}-${slot}-${index}`}
         className={`flex items-center justify-center h-full ${
           index < assignedDoctors.length - 1 ? 'border-r border-gray-200' : ''
         }`}
@@ -307,7 +305,7 @@ export default function Home() {
             </th>
             {sortedSites.map((site, siteIndex) => (
               <th
-                key={site}
+                key={`site-header-${site}-${siteIndex}`}
                 colSpan={machines.filter((m) => m.site === site).length}
                 className={`p-1 text-center border-b border-gray-400 text-sm bg-gray-100 ${
                   siteSeparationIndices.includes(siteIndex) ? 'border-r-2 border-gray-600' : 'border-r border-gray-400'
@@ -318,6 +316,7 @@ export default function Home() {
             ))}
             {uniqueMachinesWithoutSite.length > 0 && (
               <th
+                key="no-site-header"
                 colSpan={uniqueMachinesWithoutSite.length}
                 className="p-1 text-center border-b border-gray-400 text-sm bg-gray-100"
               >
@@ -328,7 +327,7 @@ export default function Home() {
           <tr className="bg-gray-100">
             {orderedMachines.map((machine, machineIndex) => (
               <th
-                key={machine.id}
+                key={`machine-header-${machine.id}-${machineIndex}`}
                 className={`p-1 text-center border-b-2 border-gray-600 text-sm ${
                   separationIndices.includes(machineIndex) ? 'border-r-2 border-gray-600' : 'border-r border-gray-400'
                 } ${fixedColumnWidth}`}
@@ -355,10 +354,10 @@ export default function Home() {
             const dayKey = formatDateKey(day);
             const slotsToShow = dayIndex === 5 ? ['Matin'] : ['Matin', 'Après-midi', 'Soir'];
             return (
-              <React.Fragment key={day.toString()}>
+              <React.Fragment key={`planning-day-${dayKey}-${dayIndex}`}>
                 {slotsToShow.map((slot, slotIndex) => (
                   <tr
-                    key={`${day.toString()}-${slot}`}
+                    key={`planning-row-${dayKey}-${slot}-${slotIndex}`}
                     className={`border-t ${
                       dayIndex !== 0 && slotIndex === 0 ? 'border-t-2 border-gray-600' : 'border-gray-400'
                     } ${dayIndex === 0 && slotIndex === 0 ? 'border-t-2' : ''}`}
@@ -387,7 +386,7 @@ export default function Home() {
                     ) : null}
                     {orderedMachines.map((machine, machineIndex) => (
                       <td
-                        key={`${dayKey}-${slot}-${machine.id}`}
+                        key={`assignment-cell-${dayKey}-${slot}-${machine.id}-${machineIndex}`}
                         className={`p-0 border-t border-b ${
                           separationIndices.includes(machineIndex) ? 'border-r-2 border-gray-600' : 'border-r border-gray-400'
                         } ${fixedColumnWidth}`}
@@ -406,6 +405,7 @@ export default function Home() {
                   </tr>
                 ))}
                 <GuardsRow
+                  key={`guards-row-${dayKey}-${dayIndex}`}
                   day={day}
                   machines={machines}
                   selectedMachines={machines.map((m) => m.id)}

@@ -33,6 +33,12 @@ interface GroupedAssignments {
 
 // Fonction pour récupérer l'état de validation d'une semaine
 export async function getWeekValidation(year: number, weekNumber: number) {
+  // Vérifier que le numéro de semaine est valide
+  if (weekNumber < 1 || weekNumber > 53) {
+    console.warn(`Numéro de semaine invalide: ${weekNumber}. Doit être entre 1 et 53.`);
+    return false;
+  }
+
   const { data, error } = await supabase
     .from('weeks')
     .select('is_validated')
@@ -49,6 +55,11 @@ export async function getWeekValidation(year: number, weekNumber: number) {
 
 // Fonction pour créer ou mettre à jour l'état de validation d'une semaine
 export async function upsertWeekValidation(year: number, weekNumber: number, isValidated: boolean) {
+  // Vérifier que le numéro de semaine est valide
+  if (weekNumber < 1 || weekNumber > 53) {
+    throw new Error(`Numéro de semaine invalide: ${weekNumber}. Doit être entre 1 et 53.`);
+  }
+
   const { data, error } = await supabase
     .from('weeks')
     .upsert(
@@ -66,6 +77,11 @@ export async function upsertWeekValidation(year: number, weekNumber: number, isV
 
 // Fonction pour récupérer ou créer un ID de semaine
 export async function getOrCreateWeekId(year: number, weekNumber: number): Promise<string> {
+  // Vérifier que le numéro de semaine est valide
+  if (weekNumber < 1 || weekNumber > 53) {
+    throw new Error(`Numéro de semaine invalide: ${weekNumber}. Doit être entre 1 et 53.`);
+  }
+
   const { data, error } = await supabase
     .from('weeks')
     .select('id')
@@ -135,8 +151,13 @@ export async function createShift(date: string, shiftType: string, machineId: st
   return data.id;
 }
 
-// Fonction pour récupérer tous les shifts d'une semaine donnée
+// Fonction pour récupérer toutes les semaines d'une semaine donnée
 export async function getShiftsForWeek(year: number, weekNumber: number) {
+  // Vérifier que le numéro de semaine est valide
+  if (weekNumber < 1 || weekNumber > 53) {
+    throw new Error(`Numéro de semaine invalide: ${weekNumber}. Doit être entre 1 et 53.`);
+  }
+
   const weekId = await getOrCreateWeekId(year, weekNumber);
   const { data, error } = await supabase
     .from('shifts')
@@ -381,6 +402,12 @@ export async function deleteDoctorAssignment(shiftId: string, doctorId: string |
 
 // Fonction pour récupérer les assignations d'une semaine
 export async function getAssignmentsForWeek(year: number, weekNumber: number) {
+  // Vérifier que le numéro de semaine est valide
+  if (weekNumber < 1 || weekNumber > 53) {
+    console.warn(`Numéro de semaine invalide: ${weekNumber}. Doit être entre 1 et 53.`);
+    return [];
+  }
+
   const weekId = await getOrCreateWeekId(year, weekNumber);
   console.log('Fetching assignments for week:', { year, weekNumber, weekId });
 
@@ -819,8 +846,15 @@ export async function removeGardeAssignment(date: string, clinic: 'CDS' | 'ST EX
 }
 
 // --- Gestion des congés ---
+
 // Fonction pour récupérer les congés d'une semaine donnée
 export async function getCongesForWeek(year: number, weekNumber: number) {
+  // Vérifier que le numéro de semaine est valide
+  if (weekNumber < 1 || weekNumber > 53) {
+    console.warn(`Numéro de semaine invalide: ${weekNumber}. Doit être entre 1 et 53.`);
+    return {};
+  }
+
   // Types pour clarifier la structure des données
   interface CongeData {
     date: string;
