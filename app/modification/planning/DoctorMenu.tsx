@@ -44,13 +44,14 @@ export const DoctorMenu: React.FC<DoctorMenuProps> = ({
     setLocalAssignment(assignment);
   }, [assignment]);
 
-  // Fonction checkRecurringException déplacée à l'extérieur du useEffect et mémorisée
+  // Fonction checkRecurringException corrigée
   const checkRecurringException = useCallback(async (): Promise<number | null> => {
     if (!shiftDate || !shiftType || !machineId) return null;
 
     const dayOfWeek = new Date(shiftDate).getDay() === 0 ? 7 : new Date(shiftDate).getDay();
     
     try {
+      // Changement ici : utiliser .maybeSingle() au lieu de .single() pour éviter l'erreur 406
       const { data, error } = await supabase
         .from('recurring_hour_exceptions')
         .select('exception_hours')
@@ -59,9 +60,9 @@ export const DoctorMenu: React.FC<DoctorMenuProps> = ({
         .or(`machine_id.eq.${machineId},machine_id.is.null`)
         .lte('start_date', shiftDate)
         .gte('end_date', shiftDate)
-        .single();
+        .maybeSingle(); // Utilisation de maybeSingle() au lieu de single()
 
-      if (error && error.code !== 'PGRST116') {
+      if (error) {
         console.error('Erreur vérification exception récurrente:', error);
         return null;
       }
@@ -71,7 +72,7 @@ export const DoctorMenu: React.FC<DoctorMenuProps> = ({
       console.error('Erreur lors de la vérification de l\'exception récurrente:', error);
       return null;
     }
-  }, [shiftDate, shiftType, machineId]); // Dépendances stables
+  }, [shiftDate, shiftType, machineId]);
 
   // Charger l'exception horaire existante au montage du composant
   useEffect(() => {
@@ -80,22 +81,25 @@ export const DoctorMenu: React.FC<DoctorMenuProps> = ({
       
       setIsLoadingException(true);
       try {
+        // Vérifier d'abord s'il y a une exception spécifique pour ce médecin
         const { data, error } = await supabase
           .from('shift_assignments')
           .select('exception_horaire')
           .eq('shift_id', shiftId)
           .eq('doctor_id', doctor.id)
-          .single();
+          .maybeSingle(); // Utilisation de maybeSingle() ici aussi
 
-        if (error && error.code !== 'PGRST116') {
+        if (error) {
           console.error('Erreur lors de la récupération de l\'exception horaire:', error);
           return;
         }
 
         if (data?.exception_horaire) {
+          // Le médecin a une exception spécifique
           setExceptionHours(data.exception_horaire);
           setTempExceptionHours(data.exception_horaire);
         } else {
+          // Pas d'exception spécifique, vérifier les exceptions récurrentes
           const recurringHours = await checkRecurringException();
           if (recurringHours) {
             setExceptionHours(recurringHours);
@@ -110,7 +114,7 @@ export const DoctorMenu: React.FC<DoctorMenuProps> = ({
     };
 
     loadExceptionHours();
-  }, [shiftId, doctor?.id, checkRecurringException]); // checkRecurringException est maintenant stable
+  }, [shiftId, doctor?.id, checkRecurringException]);
 
   const saveExceptionHours = async () => {
     if (!shiftId || !doctor?.id) {
@@ -139,7 +143,7 @@ export const DoctorMenu: React.FC<DoctorMenuProps> = ({
         .select('exception_horaire')
         .eq('shift_id', shiftId)
         .eq('doctor_id', doctor.id)
-        .single();
+        .maybeSingle(); // Utilisation de maybeSingle() ici aussi
 
       if (fetchError) {
         console.error('Erreur lors de la récupération de l\'exception horaire après sauvegarde:', fetchError);
