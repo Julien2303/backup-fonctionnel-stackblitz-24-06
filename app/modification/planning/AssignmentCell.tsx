@@ -49,8 +49,11 @@ export const AssignmentCell: React.FC<AssignmentCellProps> = ({
                     expandedCell?.machineId === machine.id;
 
   const menuRef = useRef<HTMLDivElement>(null);
-  const cellRef = useRef<HTMLDivElement>(null); // Changé de HTMLTableCellElement à HTMLDivElement
+  const cellRef = useRef<HTMLDivElement>(null);
   const [exceptionHoursMap, setExceptionHoursMap] = useState<Record<string, number | null>>({});
+  
+  // État pour gérer les indicateurs de chargement
+  const [loadingStates, setLoadingStates] = useState<Record<string, boolean>>({});
 
   const updateExceptionHours = (doctorId: string, hours: number | null) => {
     console.log('Updating exception hours:', { doctorId, hours });
@@ -103,6 +106,47 @@ export const AssignmentCell: React.FC<AssignmentCellProps> = ({
     setExpandedCell({ day, slot, machineId: machine.id });
   };
 
+  // Fonction pour gérer l'assignation avec indicateur de chargement
+  const handleAssignDoctorWithLoading = async (doctorId: string | null, isMaintenance?: boolean, isNoDoctor?: boolean) => {
+    const loadingKey = doctorId || (isMaintenance ? 'MAINT' : isNoDoctor ? 'NO_DOCTOR' : 'unknown');
+    
+    // Activer l'indicateur de chargement
+    setLoadingStates(prev => ({ ...prev, [loadingKey]: true }));
+    
+    try {
+      await handleAssignDoctor(day, slot, machine.id, doctorId, isMaintenance, isNoDoctor);
+    } finally {
+      // Désactiver l'indicateur de chargement après un délai minimal pour que l'utilisateur le voie
+      setTimeout(() => {
+        setLoadingStates(prev => ({ ...prev, [loadingKey]: false }));
+      }, 300);
+    }
+  };
+
+  // Fonction pour gérer la diminution avec indicateur de chargement
+  const handleDecreaseWithLoading = async (doctorId: string | null, isMaintenance?: boolean, isNoDoctor?: boolean) => {
+    const loadingKey = doctorId || (isMaintenance ? 'MAINT' : isNoDoctor ? 'NO_DOCTOR' : 'unknown');
+    
+    // Activer l'indicateur de chargement
+    setLoadingStates(prev => ({ ...prev, [loadingKey]: true }));
+    
+    try {
+      await decreaseDoctorShare({ 
+        day, 
+        slot, 
+        machineId: machine.id, 
+        doctorId,
+        isMaintenance,
+        isNoDoctor
+      });
+    } finally {
+      // Désactiver l'indicateur de chargement
+      setTimeout(() => {
+        setLoadingStates(prev => ({ ...prev, [loadingKey]: false }));
+      }, 300);
+    }
+  };
+
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
       if (menuRef.current && !menuRef.current.contains(event.target as Node)) {
@@ -125,6 +169,11 @@ export const AssignmentCell: React.FC<AssignmentCellProps> = ({
     console.log('Menu validated');
     setExpandedCell(null);
   };
+
+  // Composant spinner de chargement
+  const LoadingSpinner = () => (
+    <div className="inline-block w-3 h-3 border border-gray-300 border-t-transparent rounded-full animate-spin"></div>
+  );
 
   const renderDoctorInitials = (doctorAssignment: DoctorAssignment, index: number) => {
     const widthPercentage = totalShares > 0 ? (doctorAssignment.share / totalShares) * 100 : 100;
@@ -271,23 +320,20 @@ export const AssignmentCell: React.FC<AssignmentCellProps> = ({
                   const shareCount = assignedDoctor?.share || 0;
                   const canAddMoreShares = isAssigned && uniqueDoctorCount > 1 && canAddMore;
                   const isOnLeave = conges[day]?.includes(doctor.initials);
+                  const isLoading = loadingStates[doctor.id];
 
                   return (
                     <div key={doctor.id} className="flex items-center gap-1">
                       {isAssigned && (
                         <button
-                          className="px-2 py-1 text-sm rounded-l bg-red-100 hover:bg-red-200 text-red-700 font-medium"
-                          onClick={(e) => {
+                          className="px-2 py-1 text-sm rounded-l bg-red-100 hover:bg-red-200 text-red-700 font-medium flex items-center justify-center"
+                          onClick={async (e) => {
                             e.stopPropagation();
-                            decreaseDoctorShare({ 
-                              day, 
-                              slot, 
-                              machineId: machine.id, 
-                              doctorId: doctor.id 
-                            });
+                            await handleDecreaseWithLoading(doctor.id);
                           }}
+                          disabled={isLoading}
                         >
-                          −
+                          {isLoading ? <LoadingSpinner /> : '−'}
                         </button>
                       )}
                       <button
@@ -306,18 +352,24 @@ export const AssignmentCell: React.FC<AssignmentCellProps> = ({
                           backgroundColor: isAssigned && !isOnLeave ? doctor.color : undefined,
                           color: isAssigned && !isOnLeave ? '#000' : undefined
                         }}
-                        onClick={(e) => {
+                        onClick={async (e) => {
                           e.stopPropagation();
                           if (!isOnLeave && (canAddMore || (isAssigned && canAddMoreShares))) {
-                            handleAssignDoctor(day, slot, machine.id, doctor.id);
+                            await handleAssignDoctorWithLoading(doctor.id);
                           }
                         }}
-                        disabled={isOnLeave || !(canAddMore || (isAssigned && canAddMoreShares))}
+                        disabled={isOnLeave || !(canAddMore || (isAssigned && canAddMoreShares)) || isLoading}
                         title={isOnLeave ? 'En congés' : ''}
                       >
-                        {doctor.initials}
-                        {isAssigned && shareCount > 1 && (
-                          <span className="ml-1 text-xs font-bold">×{shareCount}</span>
+                        {isLoading ? (
+                          <LoadingSpinner />
+                        ) : (
+                          <>
+                            {doctor.initials}
+                            {isAssigned && shareCount > 1 && (
+                              <span className="ml-1 text-xs font-bold">×{shareCount}</span>
+                            )}
+                          </>
                         )}
                       </button>
                     </div>
@@ -337,23 +389,20 @@ export const AssignmentCell: React.FC<AssignmentCellProps> = ({
                   const shareCount = assignedDoctor?.share || 0;
                   const canAddMoreShares = isAssigned && uniqueDoctorCount > 1 && canAddMore;
                   const isOnLeave = conges[day]?.includes(doctor.initials);
+                  const isLoading = loadingStates[doctor.id];
 
                   return (
                     <div key={doctor.id} className="flex items-center gap-1">
                       {isAssigned && (
                         <button
-                          className="px-2 py-1 text-sm rounded-l bg-red-100 hover:bg-red-200 text-red-700 font-medium"
-                          onClick={(e) => {
+                          className="px-2 py-1 text-sm rounded-l bg-red-100 hover:bg-red-200 text-red-700 font-medium flex items-center justify-center"
+                          onClick={async (e) => {
                             e.stopPropagation();
-                            decreaseDoctorShare({ 
-                              day, 
-                              slot, 
-                              machineId: machine.id, 
-                              doctorId: doctor.id 
-                            });
+                            await handleDecreaseWithLoading(doctor.id);
                           }}
+                          disabled={isLoading}
                         >
-                          −
+                          {isLoading ? <LoadingSpinner /> : '−'}
                         </button>
                       )}
                       <button
@@ -372,18 +421,24 @@ export const AssignmentCell: React.FC<AssignmentCellProps> = ({
                           backgroundColor: isAssigned && !isOnLeave ? doctor.color : undefined,
                           color: isAssigned && !isOnLeave ? '#000' : undefined
                         }}
-                        onClick={(e) => {
+                        onClick={async (e) => {
                           e.stopPropagation();
                           if (!isOnLeave && (canAddMore || (isAssigned && canAddMoreShares))) {
-                            handleAssignDoctor(day, slot, machine.id, doctor.id);
+                            await handleAssignDoctorWithLoading(doctor.id);
                           }
                         }}
-                        disabled={isOnLeave || !(canAddMore || (isAssigned && canAddMoreShares))}
+                        disabled={isOnLeave || !(canAddMore || (isAssigned && canAddMoreShares)) || isLoading}
                         title={isOnLeave ? 'En congés' : ''}
                       >
-                        {doctor.initials}
-                        {isAssigned && shareCount > 1 && (
-                          <span className="ml-1 text-xs font-bold">×{shareCount}</span>
+                        {isLoading ? (
+                          <LoadingSpinner />
+                        ) : (
+                          <>
+                            {doctor.initials}
+                            {isAssigned && shareCount > 1 && (
+                              <span className="ml-1 text-xs font-bold">×{shareCount}</span>
+                            )}
+                          </>
                         )}
                       </button>
                     </div>
@@ -400,89 +455,91 @@ export const AssignmentCell: React.FC<AssignmentCellProps> = ({
                 <div className="flex items-center gap-1">
                   {assignedDoctors.some((d: DoctorAssignment) => d.maintenance) && (
                     <button
-                      className="px-2 py-1 text-sm rounded-l bg-red-100 hover:bg-red-200 text-red-700 font-medium"
-                      onClick={(e) => {
+                      className="px-2 py-1 text-sm rounded-l bg-red-100 hover:bg-red-200 text-red-700 font-medium flex items-center justify-center"
+                      onClick={async (e) => {
                         e.stopPropagation();
-                        decreaseDoctorShare({ 
-                          day, 
-                          slot, 
-                          machineId: machine.id, 
-                          doctorId: null,
-                          isMaintenance: true
-                        });
+                        await handleDecreaseWithLoading(null, true, false);
                       }}
+                      disabled={loadingStates['MAINT']}
                     >
-                      −
+                      {loadingStates['MAINT'] ? <LoadingSpinner /> : '−'}
                     </button>
                   )}
                   <button
-  className={`px-3 py-2 text-sm rounded-r flex-1 flex items-center justify-center font-medium ${
-    assignedDoctors.some((d: DoctorAssignment) => d.maintenance)
-      ? canAddMore && uniqueDoctorCount > 1
-        ? 'border-2 border-gray-400 hover:bg-gray-100 text-gray-800'
-        : 'border-2 border-gray-400 opacity-50 cursor-not-allowed text-gray-600'
-      : canAddMore 
-        ? 'bg-gray-50 hover:bg-gray-100 border border-gray-300 text-gray-700' 
-        : 'opacity-50 cursor-not-allowed text-gray-400 bg-gray-100'
-  }`}
-  style={{ backgroundColor: assignedDoctors.some((d: DoctorAssignment) => d.maintenance) ? '#d1d5db' : undefined }}
-  onClick={(e) => {
-    e.stopPropagation();
-    if (canAddMore || (assignedDoctors.some((d: DoctorAssignment) => d.maintenance) && uniqueDoctorCount > 1)) {
-      handleAssignDoctor(day, slot, machine.id, null, true, false);
-    }
-  }}
-  disabled={!(canAddMore || (assignedDoctors.some((d: DoctorAssignment) => d.maintenance) && uniqueDoctorCount > 1))}
->
-  MAINT
-  {assignedDoctors.find((d: DoctorAssignment) => d.maintenance)?.share > 1 && (
-    <span className="ml-1 text-xs font-bold">×{assignedDoctors.find((d: DoctorAssignment) => d.maintenance)?.share}</span>
-  )}
-</button>
+                    className={`px-3 py-2 text-sm rounded-r flex-1 flex items-center justify-center font-medium ${
+                      assignedDoctors.some((d: DoctorAssignment) => d.maintenance)
+                        ? canAddMore && uniqueDoctorCount > 1
+                          ? 'border-2 border-gray-400 hover:bg-gray-100 text-gray-800'
+                          : 'border-2 border-gray-400 opacity-50 cursor-not-allowed text-gray-600'
+                        : canAddMore 
+                          ? 'bg-gray-50 hover:bg-gray-100 border border-gray-300 text-gray-700' 
+                          : 'opacity-50 cursor-not-allowed text-gray-400 bg-gray-100'
+                    }`}
+                    style={{ backgroundColor: assignedDoctors.some((d: DoctorAssignment) => d.maintenance) ? '#d1d5db' : undefined }}
+                    onClick={async (e) => {
+                      e.stopPropagation();
+                      if (canAddMore || (assignedDoctors.some((d: DoctorAssignment) => d.maintenance) && uniqueDoctorCount > 1)) {
+                        await handleAssignDoctorWithLoading(null, true, false);
+                      }
+                    }}
+                    disabled={!(canAddMore || (assignedDoctors.some((d: DoctorAssignment) => d.maintenance) && uniqueDoctorCount > 1)) || loadingStates['MAINT']}
+                  >
+                    {loadingStates['MAINT'] ? (
+                      <LoadingSpinner />
+                    ) : (
+                      <>
+                        MAINT
+                        {assignedDoctors.find((d: DoctorAssignment) => d.maintenance)?.share > 1 && (
+                          <span className="ml-1 text-xs font-bold">×{assignedDoctors.find((d: DoctorAssignment) => d.maintenance)?.share}</span>
+                        )}
+                      </>
+                    )}
+                  </button>
                 </div>
 
                 <div className="flex items-center gap-1">
                   {assignedDoctors.some((d: DoctorAssignment) => d.noDoctor) && (
                     <button
-                      className="px-2 py-1 text-sm rounded-l bg-red-100 hover:bg-red-200 text-red-700 font-medium"
-                      onClick={(e) => {
+                      className="px-2 py-1 text-sm rounded-l bg-red-100 hover:bg-red-200 text-red-700 font-medium flex items-center justify-center"
+                      onClick={async (e) => {
                         e.stopPropagation();
-                        decreaseDoctorShare({ 
-                          day, 
-                          slot, 
-                          machineId: machine.id, 
-                          doctorId: null,
-                          isNoDoctor: true
-                        });
+                        await handleDecreaseWithLoading(null, false, true);
                       }}
+                      disabled={loadingStates['NO_DOCTOR']}
                     >
-                      −
+                      {loadingStates['NO_DOCTOR'] ? <LoadingSpinner /> : '−'}
                     </button>
                   )}
-                 <button
-  className={`px-3 py-2 text-sm rounded-r flex-1 flex items-center justify-center font-medium ${
-    assignedDoctors.some((d: DoctorAssignment) => d.noDoctor)
-      ? canAddMore && uniqueDoctorCount > 1
-        ? 'border-2 border-gray-400 hover:bg-gray-100 text-gray-800'
-        : 'border-2 border-gray-400 opacity-50 cursor-not-allowed text-gray-600'
-      : canAddMore 
-        ? 'bg-gray-50 hover:bg-gray-100 border border-gray-300 text-gray-700' 
-        : 'opacity-50 cursor-not-allowed text-gray-400 bg-gray-100'
-  }`}
-  style={{ backgroundColor: assignedDoctors.some((d: DoctorAssignment) => d.noDoctor) ? '#d1d5db' : undefined }}
-  onClick={(e) => {
-    e.stopPropagation();
-    if (canAddMore || (assignedDoctors.some((d: DoctorAssignment) => d.noDoctor) && uniqueDoctorCount > 1)) {
-      handleAssignDoctor(day, slot, machine.id, null, false, true);
-    }
-  }}
-  disabled={!(canAddMore || (assignedDoctors.some((d: DoctorAssignment) => d.noDoctor) && uniqueDoctorCount > 1))}
->
-  Sans Médecin
-  {assignedDoctors.find((d: DoctorAssignment) => d.noDoctor)?.share > 1 && (
-    <span className="ml-1 text-xs font-bold">×{assignedDoctors.find((d: DoctorAssignment) => d.noDoctor)?.share}</span>
-  )}
-</button>
+                  <button
+                    className={`px-3 py-2 text-sm rounded-r flex-1 flex items-center justify-center font-medium ${
+                      assignedDoctors.some((d: DoctorAssignment) => d.noDoctor)
+                        ? canAddMore && uniqueDoctorCount > 1
+                          ? 'border-2 border-gray-400 hover:bg-gray-100 text-gray-800'
+                          : 'border-2 border-gray-400 opacity-50 cursor-not-allowed text-gray-600'
+                        : canAddMore 
+                          ? 'bg-gray-50 hover:bg-gray-100 border border-gray-300 text-gray-700' 
+                          : 'opacity-50 cursor-not-allowed text-gray-400 bg-gray-100'
+                    }`}
+                    style={{ backgroundColor: assignedDoctors.some((d: DoctorAssignment) => d.noDoctor) ? '#d1d5db' : undefined }}
+                    onClick={async (e) => {
+                      e.stopPropagation();
+                      if (canAddMore || (assignedDoctors.some((d: DoctorAssignment) => d.noDoctor) && uniqueDoctorCount > 1)) {
+                        await handleAssignDoctorWithLoading(null, false, true);
+                      }
+                    }}
+                    disabled={!(canAddMore || (assignedDoctors.some((d: DoctorAssignment) => d.noDoctor) && uniqueDoctorCount > 1)) || loadingStates['NO_DOCTOR']}
+                  >
+                    {loadingStates['NO_DOCTOR'] ? (
+                      <LoadingSpinner />
+                    ) : (
+                      <>
+                        Sans Médecin
+                        {assignedDoctors.find((d: DoctorAssignment) => d.noDoctor)?.share > 1 && (
+                          <span className="ml-1 text-xs font-bold">×{assignedDoctors.find((d: DoctorAssignment) => d.noDoctor)?.share}</span>
+                        )}
+                      </>
+                    )}
+                  </button>
                 </div>
               </div>
             </div>
