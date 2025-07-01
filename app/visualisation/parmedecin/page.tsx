@@ -39,7 +39,7 @@ interface StrictShiftAssignment extends ShiftAssignment {
 
 const DAYS = ['Lundi', 'Mardi', 'Mercredi', 'Jeudi', 'Vendredi', 'Samedi'];
 const SHIFTS = {
-  Lundi: ['Matin', 'apres-midi', 'Soir'], // Changé "Après-midi" en "apres-midi"
+  Lundi: ['Matin', 'apres-midi', 'Soir'],
   Mardi: ['Matin', 'apres-midi', 'Soir'],
   Mercredi: ['Matin', 'apres-midi', 'Soir'],
   Jeudi: ['Matin', 'apres-midi', 'Soir'],
@@ -57,6 +57,32 @@ const getWeekDates = (year: number, week: number): Date[] => {
   });
 };
 
+const getWeekNumber = (date: Date): { week: number; year: number } => {
+  const d = new Date(date);
+  d.setHours(0, 0, 0, 0);
+  d.setDate(d.getDate() + 4 - (d.getDay() || 7));
+  const yearStart = new Date(d.getFullYear(), 0, 1);
+  const week = Math.ceil((((d.getTime() - yearStart.getTime()) / 86400000) + 1) / 7);
+  return { week, year: d.getFullYear() };
+};
+
+const findClosestValidatedWeek = (week: number, year: number, validated: number[]): { week: number; year: number } => {
+  if (validated.includes(week)) {
+    return { week, year };
+  }
+  const sortedWeeks = validated.sort((a, b) => a - b);
+  let closestWeek = sortedWeeks[0] || 1;
+  let minDiffusion = Infinity;
+  sortedWeeks.forEach((w) => {
+    const diff = Math.abs(w - week);
+    if (diff < minDiffusion) {
+      minDiffusion = diff;
+      closestWeek = w;
+    }
+  });
+  return { week: closestWeek, year };
+};
+
 const DoctorSchedule: React.FC = () => {
   const [currentDate, setCurrentDate] = useState<Date>(new Date());
   const [selectedWeek, setSelectedWeek] = useState<number>(23);
@@ -69,10 +95,8 @@ const DoctorSchedule: React.FC = () => {
   const [expandedCell, setExpandedCell] = useState<{ day: string; slot: string; machineId: string } | null>(null);
   const [selectedDoctor, setSelectedDoctor] = useState<{ day: string; slot: string; machineId: string; doctorId: string } | null>(null);
 
-  // CORRECTION: Le hook useAuth doit être appelé AVANT toute condition de retour
   const { loading: authLoading, error: authError, role } = useAuth(['admin', 'gestion', 'user']);
 
-  // Fonction pour récupérer les médecins
   const fetchDoctors = useCallback(async () => {
     const { data, error } = await supabase
       .from('doctors')
@@ -90,7 +114,6 @@ const DoctorSchedule: React.FC = () => {
     setDoctors(sortedDoctors);
   }, []);
 
-  // Fonction pour récupérer les machines
   const fetchMachines = useCallback(async () => {
     const { data, error } = await supabase
       .from('machines')
@@ -103,10 +126,9 @@ const DoctorSchedule: React.FC = () => {
     setMachines(data);
   }, []);
 
-  // Fonction pour récupérer les assignations
   const fetchAssignments = useCallback(async () => {
     if (!weekDays.length) return;
-  
+
     const weekId = await supabase
       .from('weeks')
       .select('id')
@@ -114,17 +136,16 @@ const DoctorSchedule: React.FC = () => {
       .eq('week_number', selectedWeek)
       .single()
       .then(res => res.data?.id);
-  
+
     if (!weekId) {
       console.warn('Aucun ID de semaine trouvé pour l\'année et la semaine sélectionnées');
       setAssignments([]);
       return;
     }
-  
-    // Utiliser formatDateKey pour les dates
+
     const startDate = formatDateKey(weekDays[0]);
     const endDate = formatDateKey(weekDays[5]);
-  
+
     const { data, error } = await supabase
       .from('shift_assignments')
       .select(`
@@ -143,67 +164,59 @@ const DoctorSchedule: React.FC = () => {
       .eq('shifts.week_id', weekId)
       .gte('shifts.date', startDate)
       .lte('shifts.date', endDate);
-  
+
     if (error) {
       console.error('Erreur lors de la récupération des assignations:', error);
       setAssignments([]);
       return;
     }
-  
+
     const formattedAssignments = data
-    .map((assignment: any) => {
-      if (!assignment.shifts?.date) return null;
-  
-      return {
-        doctor_id: assignment.doctor_id,
-        machine_id: assignment.shifts?.machine_id,
-        date: assignment.shifts.date,
-        shift_type: assignment.shifts?.shift_type,
-        teleradiologie: assignment.teleradiologie,
-        en_differe: assignment.en_differe,
-        lecture_differee: assignment.lecture_differee,
-        mutualise: assignment.mutualise,
-        pct_mutualisation: assignment.pct_mutualisation,
-      };
-    })
-    .filter((a): a is StrictShiftAssignment => a !== null && !!a.machine_id && !!a.date && !!a.shift_type);
-  
+      .map((assignment: any) => {
+        if (!assignment.shifts?.date) return null;
+
+        return {
+          doctor_id: assignment.doctor_id,
+          machine_id: assignment.shifts?.machine_id,
+          date: assignment.shifts.date,
+          shift_type: assignment.shifts?.shift_type,
+          teleradiologie: assignment.teleradiologie,
+          en_differe: assignment.en_differe,
+          lecture_differee: assignment.lecture_differee,
+          mutualise: assignment.mutualise,
+          pct_mutualisation: assignment.pct_mutualisation,
+        };
+      })
+      .filter((a): a is StrictShiftAssignment => a !== null && !!a.machine_id && !!a.date && !!a.shift_type);
+
     setAssignments(formattedAssignments);
   }, [selectedWeek, selectedYear, weekDays]);
 
-  // Charger les données initiales
   useEffect(() => {
-    fetchDoctors();
-    fetchMachines();
-  }, [fetchDoctors, fetchMachines]);
-
-  // Charger les semaines validées initiales
-  useEffect(() => {
-    const fetchInitialValidatedWeeks = async () => {
+    const initializeData = async () => {
       try {
+        await fetchDoctors();
+        await fetchMachines();
         const validated = await getValidatedWeeks(selectedYear);
         setValidatedWeeks(validated || []);
-        if (validated.length > 0 && !validated.includes(selectedWeek)) {
-          const newWeek = validated[0];
-          const newDate = getWeekDates(selectedYear, newWeek)[0];
-          setSelectedWeek(newWeek);
-          setCurrentDate(newDate);
-        }
+
+        const today = new Date();
+        const { week: todayWeek, year: todayYear } = getWeekNumber(today);
+        const { week: closestWeek, year: closestYear } = findClosestValidatedWeek(todayWeek, todayYear, validated);
+        const closestDate = getWeekDates(closestYear, closestWeek)[0];
+
+        setCurrentDate(closestDate);
+        setSelectedWeek(closestWeek);
+        setSelectedYear(closestYear);
+        setWeekDays(getWeekDates(closestYear, closestWeek));
       } catch (error) {
-        console.error('Erreur lors de la récupération des semaines validées:', error);
+        console.error('Erreur lors de l\'initialisation des données:', error);
         setValidatedWeeks([]);
       }
     };
-    fetchInitialValidatedWeeks();
-  }, [selectedYear, selectedWeek]); // CORRECTION: Ajout de selectedWeek dans les dépendances
+    initializeData();
+  }, [fetchDoctors, fetchMachines]);
 
-  // Mettre à jour les jours de la semaine
-  useEffect(() => {
-    const newWeekDays = getWeekDates(selectedYear, selectedWeek);
-    setWeekDays(newWeekDays);
-  }, [selectedWeek, selectedYear]);
-
-  // Récupérer les assignations uniquement quand les jours de la semaine sont prêts
   useEffect(() => {
     fetchAssignments();
   }, [fetchAssignments]);
@@ -236,27 +249,29 @@ const DoctorSchedule: React.FC = () => {
       }
     });
 
-    const adjustedMutualised = mutualisedMachines.map(m => {
-      if (m.pct === 33 || m.pct === 34) return { ...m, pct: 33 };
-      if (m.pct === 66 || m.pct === 67) return { ...m, pct: 66 };
-      return m;
-    });
+    const adjustedMutualised = mutualisedMachines
+      .map((m: { name: string; pct: number }) => {
+        if (m.pct === 33 || m.pct === 34) return { ...m, pct: 33 };
+        if (m.pct === 66 || m.pct === 67) return { ...m, pct: 66 };
+        return m;
+      });
 
-    const adjustedMutualisedDeferred = mutualisedDeferredMachines.map(m => {
-      if (m.pct === 33 || m.pct === 34) return { ...m, pct: 33 };
-      if (m.pct === 66 || m.pct === 67) return { ...m, pct: 66 };
-      return m;
-    });
+    const adjustedMutualisedDeferred = mutualisedDeferredMachines
+      .map((m: { name: string; pct: number }) => {
+        if (m.pct === 33 || m.pct === 34) return { ...m, pct: 33 };
+        if (m.pct === 66 || m.pct === 67) return { ...m, pct: 66 };
+        return m;
+      });
 
     return (
       <div className="flex flex-col items-center">
         {hasTeleradiologie && (
           <div className="text-green-600 font-bold">TELERADIOLOGIE</div>
         )}
-        {completeMachines.map((machine, idx) => (
+        {completeMachines.map((machine, idx: number) => (
           <div key={idx} className="text-black">{machine}</div>
         ))}
-        {adjustedMutualised.map((m, idx) => (
+        {adjustedMutualised.map((m: { name: string; pct: number }, idx: number) => (
           <div key={idx} className="text-sm italic">
             {m.name} - {m.pct}%
           </div>
@@ -264,12 +279,12 @@ const DoctorSchedule: React.FC = () => {
         {hasLectureDifferee && (
           <div className="text-blue-600 text-sm font-bold underline">+ différés</div>
         )}
-        {deferredMachines.map((machine, idx) => (
+        {deferredMachines.map((machine, idx: number) => (
           <div key={idx} className="text-red-600 text-sm font-bold">
             ({machine})
           </div>
         ))}
-        {adjustedMutualisedDeferred.map((m, idx) => (
+        {adjustedMutualisedDeferred.map((m: { name: string; pct: number }, idx: number) => (
           <div key={idx} className="text-red-600 text-sm font-bold italic">
             ({m.name} - {m.pct}%)
           </div>
@@ -278,7 +293,6 @@ const DoctorSchedule: React.FC = () => {
     );
   };
 
-  // Fonction pour déterminer si on doit ajouter une bordure droite plus foncée
   const getDayBorderClass = (dayIdx: number, shiftIdx: number) => {
     const dayName = DAYS[dayIdx];
     const totalShifts = SHIFTS[dayName as keyof typeof SHIFTS].length;
@@ -287,7 +301,6 @@ const DoctorSchedule: React.FC = () => {
     return isLastShiftOfDay ? 'border-r-2 border-r-gray-400' : 'border-r';
   };
 
-  // CORRECTION: Les conditions de retour sont maintenant APRÈS tous les hooks
   if (authLoading) {
     return <div className="p-5">Chargement...</div>;
   }
@@ -344,7 +357,7 @@ const DoctorSchedule: React.FC = () => {
                           key={sIdx} 
                           className={`border p-2 bg-gray-100 ${getDayBorderClass(idx, sIdx)}`}
                         >
-                          {shift === 'apres-midi' ? 'Après-midi' : shift} {/* Affichage avec accent pour l'UI */}
+                          {shift === 'apres-midi' ? 'Après-midi' : shift}
                         </th>
                       ))}
                     </React.Fragment>
